@@ -387,6 +387,10 @@ func buildDesiredStateWithSessionBeads(
 		tp.Env["GC_ALIAS"] = identity
 		tp.Env["GC_AGENT"] = identity
 		tp.Env["GC_SESSION_ORIGIN"] = "named"
+		// Keep BEADS_ACTOR aligned with GC_AGENT for named sessions so
+		// bd claims default to the stable identity, not the sanitized
+		// session_name. See ga-dre.
+		tp.Env["BEADS_ACTOR"] = identity
 		// When a canonical bead exists, use ITS session_name as the
 		// desiredState key so syncSessionBeads finds it in bySessionName
 		// and takes the UPDATE path. Without this, resolveSessionName

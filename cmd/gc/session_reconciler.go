@@ -1096,6 +1096,10 @@ func resolvePreservedConfiguredNamedSessionTemplate(
 	tp.Env["GC_ALIAS"] = identity
 	tp.Env["GC_AGENT"] = identity
 	tp.Env["GC_SESSION_ORIGIN"] = "named"
+	// Keep BEADS_ACTOR aligned with GC_AGENT for named sessions so
+	// bd claims default to the stable identity, not the sanitized
+	// session_name. See ga-dre.
+	tp.Env["BEADS_ACTOR"] = identity
 	installAgentSideEffects(bp, spec.Agent, tp, stderr)
 	return tp, nil
 }

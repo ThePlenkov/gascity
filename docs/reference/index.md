@@ -13,6 +13,7 @@ description: CLI, config, formula, and provider reference material.
 ## Hand-Maintained Reference Docs
 
 - [Formula Files](/reference/formula)
+- [Session Environment](/reference/session-env)
 - [Exec Session Provider](/reference/exec-session-provider)
 - [Exec Beads Provider](/reference/exec-beads-provider)
 
