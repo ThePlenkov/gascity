@@ -133,7 +133,7 @@ func TestConfigFingerprintIgnoresGCAlias(t *testing.T) {
 	if CoreFingerprint(base) != CoreFingerprint(withAlias) {
 		t.Error("GC_ALIAS should not affect core config fingerprint")
 	}
-	if CoreFingerprintBreakdown(base)["Env"] != CoreFingerprintBreakdown(withAlias)["Env"] {
+	if CoreFingerprintBreakdown(base).Fields["Env"] != CoreFingerprintBreakdown(withAlias).Fields["Env"] {
 		t.Error("GC_ALIAS should not affect core env fingerprint breakdown")
 	}
 }
@@ -342,8 +342,8 @@ func TestCoreFingerprintBreakdownConsistency(t *testing.T) {
 			}
 			// Core hashes differ — at least one breakdown field must differ.
 			anyDiff := false
-			for field, va := range bdA {
-				if va != bdB[field] {
+			for field, va := range bdA.Fields {
+				if va != bdB.Fields[field] {
 					anyDiff = true
 					break
 				}

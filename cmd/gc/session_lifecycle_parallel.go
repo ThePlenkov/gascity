@@ -65,7 +65,7 @@ type preparedStart struct {
 	candidate     startCandidate
 	cfg           runtime.Config
 	coreHash      string
-	coreBreakdown map[string]string
+	coreBreakdown runtime.BreakdownV1
 	liveHash      string
 }
 

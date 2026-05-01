@@ -671,11 +671,7 @@ func reconcileSessionBeadsTraced(
 						}
 						fmt.Fprintf(stderr, "config-drift %s: stored=%s current=%s cmd=%q\n", name, truncateHashForLog(storedHash), truncateHashForLog(currentHash), agentCfg.Command) //nolint:errcheck
 						// Diagnostic: log per-field breakdown to identify the drifting field.
-						var storedBreakdown map[string]string
-						if raw := session.Metadata["core_hash_breakdown"]; raw != "" {
-							_ = json.Unmarshal([]byte(raw), &storedBreakdown)
-						}
-						runtime.LogCoreFingerprintDrift(stderr, name, storedBreakdown, agentCfg)
+						runtime.LogCoreFingerprintDrift(stderr, name, session.Metadata["core_hash_breakdown"], agentCfg)
 						if isNamedSessionBead(*session) {
 							// Defer config-drift restart for named sessions
 							// that are actively in use (pending interaction,
