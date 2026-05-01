@@ -56,6 +56,7 @@ type SupervisorMux struct {
 	resolver  CityResolver
 	readOnly  bool
 	version   string
+	buildID   string
 	startedAt time.Time
 	server    *http.Server
 
@@ -76,13 +77,17 @@ type SupervisorMux struct {
 }
 
 // NewSupervisorMux creates a SupervisorMux that routes requests to cities
-// resolved by the given CityResolver.
-func NewSupervisorMux(resolver CityResolver, readOnly bool, version string, startedAt time.Time) *SupervisorMux {
+// resolved by the given CityResolver. buildID identifies the gc binary the
+// supervisor was built from (typically the short git commit hash with a
+// "-dirty" suffix when built from an unclean tree); empty disables binary-
+// drift comparison on the client side.
+func NewSupervisorMux(resolver CityResolver, readOnly bool, version, buildID string, startedAt time.Time) *SupervisorMux {
 	humaMux := http.NewServeMux()
 	sm := &SupervisorMux{
 		resolver:  resolver,
 		readOnly:  readOnly,
 		version:   version,
+		buildID:   buildID,
 		startedAt: startedAt,
 		humaMux:   humaMux,
 		humaAPI:   newSupervisorHumaAPI(humaMux, readOnly),

@@ -43,7 +43,7 @@ func main() {
 	flag.BoolVar(&stdoutFlag, "stdout", false, "Write the spec to stdout instead of disk.")
 	flag.Parse()
 
-	sm := api.NewSupervisorMux(emptyResolver{}, false, "", time.Time{})
+	sm := api.NewSupervisorMux(emptyResolver{}, false, "", "", time.Time{})
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
 	rec := httptest.NewRecorder()
 	sm.ServeHTTP(rec, req)

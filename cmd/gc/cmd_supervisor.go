@@ -698,7 +698,7 @@ func runSupervisor(stdout, stderr io.Writer) int {
 	if readOnly {
 		fmt.Fprintf(stderr, "gc supervisor: binding to %s — mutation endpoints disabled (non-localhost)\n", bind) //nolint:errcheck
 	}
-	apiMux := api.NewSupervisorMux(registry, readOnly, version, startedAt)
+	apiMux := api.NewSupervisorMux(registry, readOnly, version, commit, startedAt)
 
 	pprofSrv, pprofErr := api.StartPprof("")
 	if pprofErr != nil {
