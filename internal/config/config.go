@@ -1805,9 +1805,10 @@ type Agent struct {
 	// string (e.g., "5m"). Empty or zero disables the throttle. Useful for
 	// fresh-mode utility agents (watchdogs, ticks) whose drain-followup
 	// pokes would otherwise produce a tight respawn loop. Throttle is
-	// measured from the bead's last_woke_at timestamp; deferred starts log
-	// the "deferred_by_min_wake_interval" outcome and retry on the next
-	// reconciler tick.
+	// measured from the bead's creation_complete_at timestamp (which
+	// survives the death/churn gap that clears last_woke_at); deferred
+	// starts log the "deferred_by_min_wake_interval" outcome and retry
+	// on the next reconciler tick.
 	MinWakeInterval string `toml:"min_wake_interval,omitempty"`
 	// WatchdogTargetTemplate names another agent template that this agent
 	// supervises (e.g., "gastown.deacon"). When set together with

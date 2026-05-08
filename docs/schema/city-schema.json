@@ -203,7 +203,7 @@
         },
         "min_wake_interval": {
           "type": "string",
-          "description": "MinWakeInterval, if non-empty, prevents the controller from waking\nthis agent more often than this duration since its last wake. Duration\nstring (e.g., \"5m\"). Empty or zero disables the throttle. Useful for\nfresh-mode utility agents (watchdogs, ticks) whose drain-followup\npokes would otherwise produce a tight respawn loop. Throttle is\nmeasured from the bead's last_woke_at timestamp; deferred starts log\nthe \"deferred_by_min_wake_interval\" outcome and retry on the next\nreconciler tick."
+          "description": "MinWakeInterval, if non-empty, prevents the controller from waking\nthis agent more often than this duration since its last wake. Duration\nstring (e.g., \"5m\"). Empty or zero disables the throttle. Useful for\nfresh-mode utility agents (watchdogs, ticks) whose drain-followup\npokes would otherwise produce a tight respawn loop. Throttle is\nmeasured from the bead's creation_complete_at timestamp (which\nsurvives the death/churn gap that clears last_woke_at); deferred\nstarts log the \"deferred_by_min_wake_interval\" outcome and retry\non the next reconciler tick."
         },
         "watchdog_target_template": {
           "type": "string",
