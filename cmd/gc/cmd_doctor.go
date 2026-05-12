@@ -180,6 +180,7 @@ func buildDoctorChecks(cityPath string, cfg *config.City, cfgErr error, opts bui
 		register(c)
 	}
 	register(expandedConfigLoadCheck{})
+	register(newBuiltinPackRegistryMigrationCheck(cityPath))
 	register(&doctor.ImplicitImportCacheCheck{})
 	register(&doctor.DeprecatedAttachmentFieldsCheck{})
 
