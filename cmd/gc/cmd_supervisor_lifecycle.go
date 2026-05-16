@@ -58,6 +58,7 @@ var (
 		val := strings.TrimSuffix(string(out), "\n")
 		return strings.TrimSuffix(val, "\r")
 	}
+	supervisorExecutable   = os.Executable
 	supervisorSystemctlRun = func(args ...string) error {
 		return exec.Command("systemctl", args...).Run()
 	}
@@ -702,12 +703,15 @@ type supervisorServiceEnvVar struct {
 }
 
 func buildSupervisorServiceData() (*supervisorServiceData, error) {
-	gcExe, err := os.Executable()
+	gcExe, err := supervisorExecutable()
 	if err != nil {
 		return nil, fmt.Errorf("finding executable: %w", err)
 	}
 	homeDir, _ := os.UserHomeDir()
-	gcPath := resolveStableSupervisorBinaryPath(homeDir, stableSupervisorBinaryGopath(homeDir), gcExe)
+	gcPath, err := resolveStableSupervisorBinaryPath(homeDir, stableSupervisorBinaryGopath(homeDir), gcExe)
+	if err != nil {
+		return nil, fmt.Errorf("resolving supervisor binary path: %w", err)
+	}
 	home := supervisor.DefaultHome()
 	xdgRuntimeDir := strings.TrimSpace(os.Getenv("XDG_RUNTIME_DIR"))
 	if supervisor.UsesIsolatedGCHomeOverride() {
@@ -733,23 +737,63 @@ const (
 
 // resolveStableSupervisorBinaryPath picks a stable install path for the
 // supervisor service unit's ExecStart when one points at the same binary as
-// currentExe; otherwise it returns currentExe. This prevents `gc supervisor
-// install` from pinning the unit to a transient path (e.g. /tmp/gc) that
-// later install paths (`make install`, gcsync) never refresh.
-func resolveStableSupervisorBinaryPath(homeDir, gopath, currentExe string) string {
+// currentExe; otherwise it returns currentExe unless currentExe is an unstable
+// cache/temp path that must not be baked into a long-lived service unit.
+func resolveStableSupervisorBinaryPath(homeDir, gopath, currentExe string) (string, error) {
 	if currentExe == "" {
-		return currentExe
+		return currentExe, nil
 	}
 	runningInfo, err := os.Stat(currentExe)
 	if err != nil {
-		return currentExe
+		if isUnstableSupervisorExecPath(currentExe) {
+			return "", &unstableSupervisorExecPathError{path: currentExe}
+		}
+		return currentExe, nil
 	}
 	for _, candidate := range stableSupervisorBinaryCandidates(homeDir, gopath) {
 		if supervisorBinaryCandidateMatches(candidate, runningInfo) {
-			return candidate
+			return candidate, nil
 		}
 	}
-	return currentExe
+	if isUnstableSupervisorExecPath(currentExe) {
+		return "", &unstableSupervisorExecPathError{path: currentExe}
+	}
+	return currentExe, nil
+}
+
+func isUnstableSupervisorExecPath(p string) bool {
+	if p == "" {
+		return false
+	}
+	clean := filepath.Clean(p)
+	sep := string(filepath.Separator)
+	if strings.Contains(clean, sep+"go-build"+sep) {
+		return true
+	}
+	for _, root := range []string{"/tmp", "/var/tmp", os.TempDir()} {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		cleanRoot := filepath.Clean(root)
+		if clean == cleanRoot || strings.HasPrefix(clean, strings.TrimRight(cleanRoot, sep)+sep) {
+			return true
+		}
+	}
+	return false
+}
+
+type unstableSupervisorExecPathError struct {
+	path string
+}
+
+func (e *unstableSupervisorExecPathError) Error() string {
+	return fmt.Sprintf(
+		"cannot resolve a stable install path for the supervisor binary: "+
+			"currently running from %q which is not durable (go-build cache or temp dir); "+
+			"install gc to ~/.local/bin/gc or $GOPATH/bin/gc (e.g. 'go install ./cmd/gc' or 'make install') and retry",
+		e.path,
+	)
 }
 
 func stableSupervisorBinaryCandidates(homeDir, gopath string) []string {

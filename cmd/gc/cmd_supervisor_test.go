@@ -80,6 +80,26 @@ func stubSupervisorSystemctlUserAvailable(t *testing.T, available bool) {
 	})
 }
 
+func stubSupervisorExecutable(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", ".gc-supervisor-test-")
+	if err != nil {
+		t.Fatalf("mkdir stable supervisor executable dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	path, err := filepath.Abs(filepath.Join(dir, "gc"))
+	if err != nil {
+		t.Fatalf("abs stable supervisor executable path: %v", err)
+	}
+	if err := os.WriteFile(path, []byte{}, 0o755); err != nil {
+		t.Fatalf("write stable supervisor executable: %v", err)
+	}
+	old := supervisorExecutable
+	supervisorExecutable = func() (string, error) { return path, nil }
+	t.Cleanup(func() { supervisorExecutable = old })
+	return path
+}
+
 func startWorkspaceServiceSentinel(t *testing.T, gcHome, cityPath, serviceName string) workspaceServiceSentinel {
 	t.Helper()
 	stateRoot := filepath.Join(cityPath, ".gc", "services", serviceName)
@@ -445,6 +465,7 @@ func TestRenderSupervisorSystemdTemplateUsesPreserveEnvFromData(t *testing.T) {
 }
 
 func TestBuildSupervisorServiceDataTreatsPreserveSignalEnvAsFixed(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -478,6 +499,7 @@ func TestBuildSupervisorServiceDataTreatsPreserveSignalEnvAsFixed(t *testing.T) 
 }
 
 func TestBuildSupervisorServiceDataIncludesProviderEnv(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -521,6 +543,7 @@ func TestBuildSupervisorServiceDataIncludesProviderEnv(t *testing.T) {
 }
 
 func TestBuildSupervisorServiceDataOmitsProviderEnvWhenOptedOut(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -573,6 +596,7 @@ func supervisorServiceEnvMap(vars []supervisorServiceEnvVar) map[string]string {
 }
 
 func TestBuildSupervisorServiceDataReadsAllowlistedDoltCredentialKeysFromLaunchctl(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -608,6 +632,7 @@ func TestBuildSupervisorServiceDataReadsAllowlistedDoltCredentialKeysFromLaunchc
 }
 
 func TestBuildSupervisorServiceDataSkipsDoltEndpointEnvUnlessExplicitlyOptedIn(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -657,6 +682,7 @@ func TestBuildSupervisorServiceDataSkipsDoltEndpointEnvUnlessExplicitlyOptedIn(t
 }
 
 func TestBuildSupervisorServiceDataPrefersOSEnvOverLaunchctl(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -684,6 +710,7 @@ func TestBuildSupervisorServiceDataPrefersOSEnvOverLaunchctl(t *testing.T) {
 }
 
 func TestBuildSupervisorServiceDataReadsExplicitEnvOptInFromLaunchctl(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -713,6 +740,7 @@ func TestBuildSupervisorServiceDataReadsExplicitEnvOptInFromLaunchctl(t *testing
 }
 
 func TestBuildSupervisorServiceDataDeduplicatesLaunchctlFallbackProbes(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
@@ -786,6 +814,7 @@ func TestSupervisorLaunchctlGetenvStripsDarwinOutputNewline(t *testing.T) {
 }
 
 func TestBuildSupervisorServiceDataExpandsUserManagedPath(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	nvmBin := filepath.Join(homeDir, ".nvm", "versions", "node", "v22.14.0", "bin")
 	if err := os.MkdirAll(nvmBin, 0o755); err != nil {
@@ -830,6 +859,7 @@ func TestEmitSupervisorLoadCityConfigWarningsOncePerCity(t *testing.T) {
 }
 
 func TestBuildSupervisorServiceDataOmitsXDGRuntimeDirForIsolatedGCHome(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	gcHome := filepath.Join(t.TempDir(), "isolated-home")
 	t.Setenv("HOME", homeDir)
@@ -849,6 +879,7 @@ func TestBuildSupervisorServiceDataOmitsXDGRuntimeDirForIsolatedGCHome(t *testin
 }
 
 func TestBuildSupervisorServiceDataCanonicalizesIsolatedGCHome(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	canonicalHome := filepath.Join(t.TempDir(), "isolated-home")
 	if err := os.MkdirAll(canonicalHome, 0o755); err != nil {
@@ -871,6 +902,7 @@ func TestBuildSupervisorServiceDataCanonicalizesIsolatedGCHome(t *testing.T) {
 }
 
 func TestRenderSupervisorTemplateUsesCanonicalRelativeGCHome(t *testing.T) {
+	stubSupervisorExecutable(t)
 	homeDir := t.TempDir()
 	canonicalHome := filepath.Join(homeDir, "isolated-home")
 	if err := os.MkdirAll(canonicalHome, 0o755); err != nil {
@@ -4773,7 +4805,25 @@ func TestStopSupervisorWithWaitTimesOutWhenSocketKeepsAnswering(t *testing.T) {
 func TestResolveStableSupervisorBinaryPath(t *testing.T) {
 	newRunningExe := func(t *testing.T) string {
 		t.Helper()
-		path := filepath.Join(t.TempDir(), "gc")
+		dir, err := os.MkdirTemp(".", ".gc-supervisor-test-")
+		if err != nil {
+			t.Fatalf("mkdir stable running exe dir: %v", err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(dir) })
+		path, err := filepath.Abs(filepath.Join(dir, "gc"))
+		if err != nil {
+			t.Fatalf("abs running exe path: %v", err)
+		}
+		if err := os.WriteFile(path, []byte{}, 0o755); err != nil {
+			t.Fatalf("write running exe: %v", err)
+		}
+		return path
+	}
+	newRunningExeAt := func(t *testing.T, path string) string {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir running exe dir: %v", err)
+		}
 		if err := os.WriteFile(path, []byte{}, 0o755); err != nil {
 			t.Fatalf("write running exe: %v", err)
 		}
@@ -4781,8 +4831,9 @@ func TestResolveStableSupervisorBinaryPath(t *testing.T) {
 	}
 
 	cases := []struct {
-		name  string
-		setup func(t *testing.T) (homeDir, gopath, currentExe, want string)
+		name    string
+		setup   func(t *testing.T) (homeDir, gopath, currentExe, want string)
+		wantErr bool
 	}{
 		{
 			name: "local_bin_symlink_resolves_to_running_exe",
@@ -4882,17 +4933,117 @@ func TestResolveStableSupervisorBinaryPath(t *testing.T) {
 				return homeDir, "", running, running
 			},
 		},
+		{
+			name: "currentExe_in_go_build_cache_returns_error",
+			setup: func(t *testing.T) (string, string, string, string) {
+				currentExe := newRunningExeAt(t, filepath.Join(t.TempDir(), "go-build", "4c", "gc"))
+				return t.TempDir(), t.TempDir(), currentExe, ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "currentExe_under_tmp_returns_error",
+			setup: func(t *testing.T) (string, string, string, string) {
+				currentExe := newRunningExeAt(t, filepath.Join(t.TempDir(), "tmp-shaped-prefix", "gc"))
+				if !isUnstableSupervisorExecPath(currentExe) {
+					t.Fatalf("test setup path %q should be unstable", currentExe)
+				}
+				return t.TempDir(), t.TempDir(), currentExe, ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "currentExe_under_opt_returns_no_error_when_no_candidates",
+			setup: func(t *testing.T) (string, string, string, string) {
+				currentExe := filepath.Join(string(filepath.Separator), "opt", "gascity-test", "gc")
+				return t.TempDir(), t.TempDir(), currentExe, currentExe
+			},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			homeDir, gopath, currentExe, want := tc.setup(t)
-			got := resolveStableSupervisorBinaryPath(homeDir, gopath, currentExe)
+			got, err := resolveStableSupervisorBinaryPath(homeDir, gopath, currentExe)
+			if tc.wantErr {
+				var unstableErr *unstableSupervisorExecPathError
+				if !errors.As(err, &unstableErr) {
+					t.Fatalf("resolveStableSupervisorBinaryPath(%q, %q, %q) error = %v, want *unstableSupervisorExecPathError",
+						homeDir, gopath, currentExe, err)
+				}
+			} else if err != nil {
+				t.Fatalf("resolveStableSupervisorBinaryPath(%q, %q, %q) error = %v, want nil",
+					homeDir, gopath, currentExe, err)
+			}
 			if got != want {
 				t.Fatalf("resolveStableSupervisorBinaryPath(%q, %q, %q) = %q, want %q",
 					homeDir, gopath, currentExe, got, want)
 			}
 		})
+	}
+}
+
+func TestBuildSupervisorServiceDataErrorsOnGoBuildExePath(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
+	t.Setenv("GOPATH", t.TempDir())
+
+	currentExe := filepath.Join(t.TempDir(), "go-build", "4c", "gc")
+	if err := os.MkdirAll(filepath.Dir(currentExe), 0o755); err != nil {
+		t.Fatalf("mkdir current exe dir: %v", err)
+	}
+	if err := os.WriteFile(currentExe, []byte{}, 0o755); err != nil {
+		t.Fatalf("write current exe: %v", err)
+	}
+
+	oldExecutable := supervisorExecutable
+	supervisorExecutable = func() (string, error) { return currentExe, nil }
+	t.Cleanup(func() { supervisorExecutable = oldExecutable })
+
+	_, err := buildSupervisorServiceData()
+	var unstableErr *unstableSupervisorExecPathError
+	if !errors.As(err, &unstableErr) {
+		t.Fatalf("buildSupervisorServiceData error = %v, want *unstableSupervisorExecPathError", err)
+	}
+}
+
+func TestRunSupervisorInstallReportsUnstableExecPath(t *testing.T) {
+	if goruntime.GOOS != "linux" && goruntime.GOOS != "darwin" {
+		t.Skip("platform supervisor install unsupported on this OS")
+	}
+	user, err := user.Current()
+	if err != nil || strings.TrimSpace(user.HomeDir) == "" {
+		t.Fatalf("current user home: %v", err)
+	}
+	t.Setenv("HOME", user.HomeDir)
+	t.Setenv("GC_HOME", t.TempDir())
+	t.Setenv("GOPATH", t.TempDir())
+
+	currentExe := filepath.Join(t.TempDir(), "go-build", "4c", "gc")
+	if err := os.MkdirAll(filepath.Dir(currentExe), 0o755); err != nil {
+		t.Fatalf("mkdir current exe dir: %v", err)
+	}
+	if err := os.WriteFile(currentExe, []byte{}, 0o755); err != nil {
+		t.Fatalf("write current exe: %v", err)
+	}
+
+	oldExecutable := supervisorExecutable
+	supervisorExecutable = func() (string, error) { return currentExe, nil }
+	t.Cleanup(func() { supervisorExecutable = oldExecutable })
+
+	var stdout, stderr bytes.Buffer
+	if code := doSupervisorInstall(&stdout, &stderr); code == 0 {
+		t.Fatalf("doSupervisorInstall code = 0, want non-zero")
+	}
+	got := stderr.String()
+	for _, want := range []string{
+		currentExe,
+		"install gc to ~/.local/bin/gc",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stderr = %q, want it to contain %q", got, want)
+		}
 	}
 }
 
@@ -4906,10 +5057,7 @@ func TestBuildSupervisorServiceDataPrefersUserLocalBinExecPath(t *testing.T) {
 	t.Setenv("PATH", "/usr/local/bin:/usr/bin:/bin")
 	t.Setenv("XDG_RUNTIME_DIR", "/tmp/gc-run")
 
-	runningExe, err := os.Executable()
-	if err != nil {
-		t.Fatalf("os.Executable: %v", err)
-	}
+	runningExe := stubSupervisorExecutable(t)
 	binDir := filepath.Join(homeDir, ".local", "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		t.Fatalf("mkdir local bin: %v", err)
@@ -4945,10 +5093,7 @@ func TestInstallSupervisorSystemdRefreshesStaleTmpExecStart(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("GC_HOME", filepath.Join(homeDir, ".gc"))
 
-	runningExe, err := os.Executable()
-	if err != nil {
-		t.Fatalf("os.Executable: %v", err)
-	}
+	runningExe := stubSupervisorExecutable(t)
 	binDir := filepath.Join(homeDir, ".local", "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		t.Fatalf("mkdir local bin: %v", err)
