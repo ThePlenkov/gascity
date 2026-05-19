@@ -849,6 +849,11 @@ Local-only state:
 - Runtime artifacts under `.runtime/` are local run evidence, not durable GitHub
   records unless an agent explicitly summarizes them into issues, PR comments,
   or coordination docs.
+- Portable machine-transition bundle created on the old machine:
+  `/Users/dbox/repos/gc/gc4gc-machine-handoff-20260518`.
+- The bundle includes stable and Grace-dev Git bundles plus overlays for
+  `.runtime/`, `.beads/`, and uncommitted/untracked producer state.
+- The bundle intentionally excludes `.gc/`; Gas City owns that opaque state.
 
 Validation commands:
 
