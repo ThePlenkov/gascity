@@ -58,6 +58,9 @@ needed owner in `Reason`.
   fan-out worktrees. Mabel re-ran the targeted readiness matrix on the old
   machine at this checkpoint and found no validation blockers. Draft PR #2351
   is open for visibility but is not queued for review.
+- `yellow`: Cleo resumed #2351 on the new machine at
+  `/Users/dbox/repos/gc/gc-pr2119`. First local cleanup slice is unpushed but
+  passing targeted validation; #2351 remains draft/not queued.
 - `green`: Registry/gc pack design PR #2119 is closed as superseded by #2351.
   Landed #2129 remains the explicit `[[exports]]` design source; #2351 does
   not implement `[[exports]]`.
@@ -652,14 +655,12 @@ Owner: Cleo
 
 Current implementation worktree:
 
-- Worktree: `/Users/dbox/repos/gc-pr2119`
+- Worktree: `/Users/dbox/repos/gc/gc-pr2119`
 - Current branch: `codex/pack-registry-workstream`
 - Pushed branch: `gastownhall/gascity:codex/pack-registry-workstream`
 - Current checkpoint commit: `f82f3c4e`
-- State: clean and pushed after registry hardening, first `gc pack`
-  dependency-command bridge, docs/reference update, and doctor guard for
-  durable `registry:` selectors.
-- Machine-move readiness: ready.
+- State: local unpushed cleanup slice in progress on the new machine.
+- Machine-move readiness: complete.
 
 Older local branches have been inspected and are not required by the new
 machine:
@@ -682,6 +683,42 @@ operations still come first inside that workstream.
 The registry/gc pack source of truth is now
 `gastownhall/gascity:codex/pack-registry-workstream`.
 
+Cleo resumed #2351 on the new machine from checkpoint `f82f3c4e`. PR #2351
+remains draft and not queued. Stable gc4gc is verified as safe to consume from
+`/Users/dbox/repos/gc/gc4gc` on `master` at
+`8d992e5336e20aaa70577ce58b368c72592a73cd`, with runtime
+`/Users/dbox/repos/gc/gascity-agent-runtime` on
+`codex/gc4gc-agent-runtime-dolt-leak` at
+`631493c52046d44cd006662e3858d1e6efc67f85`.
+
+Live #2351 failures at `f82f3c4e`:
+
+- Preflight / static checks: lint failures in registry/source plus adjacent
+  pack/gchome/cmd nits.
+- Integration / packages-core-1-of-4: missing `testenv_import_test.go` in
+  `internal/gchome`, `internal/packregistry`, and `internal/packsource`.
+- cmd/gc process shard 9:
+  `TestScanAllOrdersRemoteImportedFlatPackOrders` fails because the test seeded
+  `HOME/.gc` cache while `testenv` uses `GC_HOME`.
+- Integration / packages-cmd-gc-3-of-6 remains failing in remote CI logs; Cleo
+  fixed the reproduced targeted order test locally.
+
+First cleanup slice is local-only and not pushed:
+
+- Generated canonical `testenv_import_test.go` files for `internal/gchome`,
+  `internal/packregistry`, and `internal/packsource`.
+- Cleared static lint across `internal/packregistry`, `internal/packsource`,
+  `internal/gchome`, `internal/packman`, and adjacent `cmd/gc` nits.
+- Fixed `TestScanAllOrdersRemoteImportedFlatPackOrders` to seed
+  `config.GlobalRepoCachePath(gchome.Default(), source, commit)`.
+
+Local verification passing:
+
+- `go test ./internal/packsource ./internal/packregistry ./internal/packman ./internal/config ./internal/gchome ./internal/testenv`
+- `make lint-full`
+- `go test ./cmd/gc -run TestScanAllOrdersRemoteImportedFlatPackOrders -count=1`
+- `git diff --check`
+
 ### PRs In Play
 
 | PR | URL | Branch | Status | Role | Next owner |
@@ -695,6 +732,8 @@ The registry/gc pack source of truth is now
 
 - Mabel and D. Box decide when to move #2351 from draft/review-train staging
   into active review.
+- Cleo finishes the first local cleanup slice, then pushes only after the
+  required CI-failure fixes are coherent.
 - Cleo keeps #2351 stable unless coordinating a product-surface change.
 - Before #2351 exits draft, Mabel refreshes JSON compatibility against #2349
   and deprecation compatibility against #2126.
@@ -735,6 +774,8 @@ Nice follow-up:
 
 - Sequencing decision: when to move #2351 from draft into active review.
 - Review capacity is the practical blocker; #2349 and #2318 are already active.
+- Current branch blockers are required CI failures reproduced above; Cleo has
+  a local unpushed slice addressing the first set.
 - Future explicit `[[exports]]` implementation needs an issue/owner before the
   registry/gc pack workstream is called fully closed.
 - Coordinate with Jasmine/Mabel if #2349 changes JSON/failure-schema
@@ -801,7 +842,8 @@ Urgency: yellow
 
 Reason: Draft PR #2351 is open for visibility but not queued. Mabel should
 monitor sequencing and decide when to convert it to ready-for-review after the
-current JSON/deprecation trains move.
+current JSON/deprecation trains move. Cleo has local unpushed CI cleanup in
+progress on the new machine.
 
 ### Interface Contracts Other Agents Must Honor
 
@@ -855,8 +897,9 @@ File ownership boundaries for Cleo's workstream:
   constraints beyond preserving `gc import migrate` until doctor parity,
   preserving legacy `gc pack fetch/list`, preserving current PackV2 import
   fields, and coordinating before compatibility behavior changes.
-- Cleo: continue from `f82f3c4e`; draft PR #2351 is open. Coordinate before
-  pushing additional product-surface changes so the draft remains reviewable.
+- Cleo: continue the local cleanup slice from `f82f3c4e`; draft PR #2351 is
+  open. Coordinate before pushing additional product-surface changes so the
+  draft remains reviewable.
 
 ### JSON Assumptions
 
@@ -914,6 +957,13 @@ same matrix on 2026-05-18 PT and all four commands passed again:
 Cleo re-ran the matrix after the final product-surface pass at `f82f3c4e`; all
 four commands passed again.
 
+Cleo's first new-machine cleanup slice is local-only and currently passes:
+
+- `go test ./internal/packsource ./internal/packregistry ./internal/packman ./internal/config ./internal/gchome ./internal/testenv`
+- `make lint-full`
+- `go test ./cmd/gc -run TestScanAllOrdersRemoteImportedFlatPackOrders -count=1`
+- `git diff --check`
+
 A broader `go test ./cmd/gc -count=1` attempt was previously stopped after
 running long with no additional output; use the targeted matrix above plus
 CI/full package testing as review prep.
@@ -929,7 +979,7 @@ Additional required gates:
 
 ### Last Updated
 
-2026-05-18 22:22 PT by Mabel
+2026-05-19 PT by Mabel from Cleo's new-machine resume report
 
 ## New Machine Bootstrap
 
