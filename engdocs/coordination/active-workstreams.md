@@ -1,6 +1,6 @@
 # Active Workstream Coordination
 
-Last updated: 2026-05-18 21:53 PT by Mabel
+Last updated: 2026-05-18 22:18 PT by Mabel
 
 This is a temporary cross-agent coordination channel, not product documentation.
 Do not merge this file into public docs unless we explicitly promote it.
@@ -55,7 +55,8 @@ needed owner in `Reason`.
   Cleo verified that meaningful registry/gc pack work is pushed, old feeder
   branches are superseded or disposable, and the new machine does not need old
   fan-out worktrees. Mabel re-ran the targeted readiness matrix on the old
-  machine at this checkpoint and found no validation blockers.
+  machine at this checkpoint and found no validation blockers. Draft PR #2351
+  is open for visibility but is not queued for review.
 - `green`: Jasmine's JSON work has a final machine-move checkpoint; the new
   machine does not need old JSON fan-out worktrees.
 - `yellow`: Mabel's coordination state is portable through this branch, but the
@@ -466,7 +467,7 @@ Registry-gc-pack
 
 Branch: `codex/pack-registry-workstream`
 
-PR: not opened yet
+PR: draft #2351, <https://github.com/gastownhall/gascity/pull/2351>
 
 Base: `upstream/main` / `gastownhall/gascity@03c80562`
 
@@ -510,7 +511,8 @@ Mabel refreshed live state on 2026-05-18 PT:
 - The old-machine worktree is clean at `f82f3c4e`.
 - The branch is six commits ahead of `gastownhall/main` and not behind it as
   of `gastownhall/main@03c80562`.
-- No PR is currently open for `codex/pack-registry-workstream`.
+- Draft PR #2351 is open for `codex/pack-registry-workstream`; it is visible
+  for discussion/handoff but intentionally not labeled for review yet.
 
 Dirty/unpushed work has been migrated and pushed. No meaningful local-only
 registry work should remain on the old machine.
@@ -548,22 +550,23 @@ Completed inside the workstream since the preservation checkpoint:
 
 Next milestone:
 
-- Open the workstream PR when D. Box/Mabel are ready to start the registry/gc
-  pack train. Mabel's refreshed validation found no branch-readiness blocker;
-  Cleo completed the final product-surface pass and pushed the result.
+- Keep draft PR #2351 visible while #2349 and other active review trains move.
+  When D. Box/Mabel decide the registry/gc pack train should enter review,
+  convert #2351 out of draft and apply the appropriate review-routing label.
+  Mabel's refreshed validation found no branch-readiness blocker; Cleo
+  completed the final product-surface pass and pushed the result.
 
 ### Attention Needed
 
-Needs Mabel: no
+Needs Mabel: yes
 
 Needs D. Box: no
 
-Urgency: green
+Urgency: yellow
 
-Reason: Mabel confirmed Pack Deprecation does not require new compatibility
-messaging changes before registry PR prep. Jasmine should still flag any JSON
-rollup convention changes that affect registry schemas; current registry JSON
-tests compose with the branch-local platform.
+Reason: Draft PR #2351 is open for visibility but not queued. Mabel should
+monitor sequencing and decide when to convert it to ready-for-review after the
+current JSON/deprecation trains move.
 
 ### Interface Contracts Other Agents Must Honor
 
@@ -617,8 +620,8 @@ File ownership boundaries for Cleo's workstream:
   constraints beyond preserving `gc import migrate` until doctor parity,
   preserving legacy `gc pack fetch/list`, preserving current PackV2 import
   fields, and coordinating before compatibility behavior changes.
-- Cleo: continue from `f82f3c4e`; the next action is opening/updating the
-  workstream PR when Mabel/D. Box want the train visible on GitHub.
+- Cleo: continue from `f82f3c4e`; draft PR #2351 is open. Coordinate before
+  pushing additional product-surface changes so the draft remains reviewable.
 
 ### JSON Assumptions
 
@@ -691,7 +694,7 @@ Additional required gates:
 
 ### Last Updated
 
-2026-05-18 21:59 PT by Cleo
+2026-05-18 22:18 PT by Mabel
 
 ## New Machine Bootstrap
 
