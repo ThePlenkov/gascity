@@ -580,6 +580,14 @@ transitional PackV2 material out of public docs and into engineering docs, so
 future agents and users do not treat old design notes as current product
 guidance.
 
+Julian flagged #2318 as possibly having a real test failure after the move.
+Mabel reproduced the branch failure locally:
+`TestAuthoritativeDocsUseSingularOverlayDirectory` still walked removed
+`docs/packv2`. Mabel patched the test to scan `engdocs/design/packv2`
+including `.md` and `.mdx`, verified the focused config tests plus docsync
+locally, and pushed commit `4f5c7b16` (`test: follow moved PackV2 design
+docs`). GitHub CI is rerunning for #2318.
+
 ### PRs In Play
 
 | PR | URL | Branch | Status | Role | Next owner |
@@ -588,7 +596,7 @@ guidance.
 
 ### Immediate Next Step
 
-- Mabel tracks #2318 through review/merge.
+- Mabel tracks #2318 CI after `4f5c7b16`, then review/merge.
 - Chris reviews public-doc clarity if he has capacity.
 - Mabel keeps #2318 separate from #2126, #2349, and #2351.
 
@@ -620,7 +628,9 @@ Nice follow-up:
 
 ### Open Decisions / Blockers
 
-- Review/merge-pipeline state is the known blocker for #2318.
+- CI rerun after `4f5c7b16` is pending. Previous required failure was a real
+  stale test-path failure and is fixed locally.
+- Review/merge-pipeline state remains after CI is green.
 - Chris is requested on #2318 for docs clarity; Julian may still be needed for
   repository merge policy.
 - No Cleo/Jasmine/Grace/Penelope action is required unless their docs start
@@ -635,7 +645,7 @@ Nice follow-up:
 
 ### Last Updated
 
-2026-05-18 22:22 PT by Mabel
+2026-05-19 PT by Mabel after Julian's #2318 CI flag
 
 ## Workstream Handoff
 
