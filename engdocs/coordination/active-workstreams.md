@@ -1,6 +1,6 @@
 # Active Workstream Coordination
 
-Last updated: 2026-05-19 UTC by Mabel after #2318 upmerge and #2222 dequeue
+Last updated: 2026-05-19 UTC by Cleo after #2351 dependency-command wave
 
 This is a temporary cross-agent coordination channel, not product documentation.
 Do not merge this file into public docs unless we explicitly promote it.
@@ -54,11 +54,11 @@ needed owner in `Reason`.
   published separately. Grace bootstrapped the stable consumer setup on the
   new machine and the handoff smoke passed.
 - `green`: Registry-gc-pack is current on the new machine at
-  `gastownhall/gascity:codex/pack-registry-workstream` commit `642d4c2b`.
-  Cleo pushed the first cleanup/default-registry slice and refreshed live PR
-  #2351 state on 2026-05-19 UTC: required CI, preflight, integration, cmd/gc
-  shards, and CodeQL are green. Draft PR #2351 remains open for visibility but
-  is not queued for review.
+  `gastownhall/gascity:codex/pack-registry-workstream` commit `099f7ccf`.
+  Cleo pushed the dependency-command/doctor parity wave on 2026-05-19 UTC.
+  Local targeted tests, docs freshness, lint, and the Claude/Gemini/fresh-Codex
+  review council gate are complete. Live PR #2351 checks are newly pending;
+  draft PR #2351 remains open for visibility but is not queued for review.
 - `green`: Registry/gc pack design PR #2119 is closed as superseded by #2351.
   Landed #2129 remains the explicit `[[exports]]` design source; #2351 does
   not implement `[[exports]]`.
@@ -676,8 +676,9 @@ Current implementation worktree:
 - Worktree: `/Users/dbox/repos/gc/gc-pr2119`
 - Current branch: `codex/pack-registry-workstream`
 - Pushed branch: `gastownhall/gascity:codex/pack-registry-workstream`
-- Current checkpoint commit: `642d4c2b`
-- State: pushed; live PR #2351 CI is green; PR remains draft/not queued.
+- Current checkpoint commit: `099f7ccf`
+- State: pushed; local validation is green; live PR #2351 checks are pending;
+  PR remains draft/not queued.
 - Machine-move readiness: complete.
 
 Older local branches have been inspected and are not required by the new
@@ -702,8 +703,9 @@ The registry/gc pack source of truth is now
 `gastownhall/gascity:codex/pack-registry-workstream`.
 
 Cleo resumed #2351 on the new machine from checkpoint `f82f3c4e`, completed the
-first cleanup/default-registry slice, and pushed checkpoint `642d4c2b`. PR
-#2351 remains draft and not queued. Stable gc4gc is verified as safe to consume from
+first cleanup/default-registry slice, and pushed checkpoint `642d4c2b`. Cleo
+then completed the dependency-command/doctor parity wave and pushed checkpoint
+`099f7ccf`. PR #2351 remains draft and not queued. Stable gc4gc is verified as safe to consume from
 `/Users/dbox/repos/gc/gc4gc` on `master` at
 `8d992e5336e20aaa70577ce58b368c72592a73cd`, with runtime
 `/Users/dbox/repos/gc/gascity-agent-runtime` on
@@ -715,11 +717,12 @@ work: `codex/gc4gc-runtime-main-2313-json` at
 `0ae2ba20`. Treat this as the dogfood/review runtime, distinct from the
 previous stable-consumer bootstrap runtime above.
 
-Live #2351 state at `642d4c2b`:
+Live #2351 state at `099f7ccf`:
 
-- Required CI, preflight, integration, cmd/gc process shards, CodeQL, and
-  dashboard checks are green.
-- Merge state is blocked only by draft/review sequencing.
+- New GitHub checks started after the push. At refresh time, `remove-label` was
+  queued and Mintlify Deployment was in progress; required CI had not yet
+  reported for the new commit.
+- Merge state remains blocked by draft/review sequencing.
 - Branch is clean and pushed to `origin/codex/pack-registry-workstream`.
 
 First cleanup/default-registry slice is pushed:
@@ -740,15 +743,42 @@ First cleanup/default-registry slice is pushed:
 - Updated import-state doctor remediation copy to direct repair through
   `gc pack sync`, while preserving legacy `gc import` compatibility.
 
+Dependency-command/doctor parity wave is pushed:
+
+- Implemented PackV2-backed `gc pack list`, `gc pack show`, and
+  `gc pack outdated`, with `--json` result schemas under
+  `schemas/pack/<command>/result.schema.json`.
+- Preserved legacy `[packs]` cache-status listing via `gc pack list --legacy`
+  and preserved legacy `gc pack fetch`; `gc pack list --legacy --json` is
+  rejected through the JSON failure path rather than emitting text stdout.
+- Made `packv2-import-state` doctor fixable by running the same sync/install
+  path as `gc pack sync`, while still requiring manual cleanup for durable
+  `registry:` selectors.
+- Kept the source-first PackV2 import invariant: durable user-authored
+  `pack.toml` imports use `source` plus optional `version`; public
+  `ref`/`path`/`commit`/`hash` import fields were not added. Exact
+  ref/commit/hash/integrity details remain allowed in registry metadata,
+  lockfiles, and cache internals.
+- Refreshed generated CLI/config/schema docs so legacy `[packs]` ref/path
+  metadata is not presented as the public PackV2 import surface.
+- Ran a three-reviewer gate (Claude, Gemini, fresh Codex/Volta) over the
+  uncommitted diff. Cleo fixed the actionable findings before commit:
+  `gc pack outdated` resolver failures now fail instead of reporting
+  "current", `gc pack list --legacy --json` no longer emits text stdout,
+  `packDependencyOrigin` has a nil guard, and empty `gc pack outdated` is a
+  successful no-op.
+
 Local verification passing:
 
 - `go test ./internal/packsource ./internal/packregistry ./internal/packman ./internal/config ./internal/gchome ./internal/testenv`
 - `make lint-full`
+- `make check-docs`
 - Focused `cmd/gc` registry/import/doctor/scope matrix including
   `TestScanAllOrdersRemoteImportedFlatPackOrders`,
   `TestPackRegistryJSON`, `TestPackScopeContracts`,
   `TestImportStateDoctorCheck`, and init default-registry tests.
 - `git diff --check`
+- Donna manual-test binary: `/Users/dbox/repos/gc/.runtime/bin/gc-pr2351-099f7ccf`
 
 ### PRs In Play
 
@@ -934,9 +964,8 @@ File ownership boundaries for Cleo's workstream:
   constraints beyond preserving `gc import migrate` until doctor parity,
   preserving legacy `gc pack fetch/list`, preserving current PackV2 import
   fields, and coordinating before compatibility behavior changes.
-- Cleo: continue from CI-green checkpoint `642d4c2b`; draft PR #2351 is open.
-  Coordinate before pushing additional product-surface changes so the draft
-  remains reviewable.
+- Cleo: monitor live checks for `099f7ccf`, keep PR #2351 draft, and address
+  any CI/review-council fallout before declaring the wave complete.
 
 ### JSON Assumptions
 
@@ -994,8 +1023,8 @@ same matrix on 2026-05-18 PT and all four commands passed again:
 Cleo re-ran the matrix after the final product-surface pass at `f82f3c4e`; all
 four commands passed again.
 
-Cleo's first new-machine cleanup/default-registry slice is pushed at
-`642d4c2b` and currently passes locally:
+Cleo's first new-machine cleanup/default-registry slice was pushed at
+`642d4c2b` and passed locally:
 
 - `go test ./internal/packsource ./internal/packregistry ./internal/packman ./internal/config ./internal/gchome ./internal/testenv`
 - `make lint-full`
@@ -1021,6 +1050,19 @@ A broader `go test ./cmd/gc -count=1` attempt was previously stopped after
 running long with no additional output; use the targeted matrix above plus
 CI/full package testing as review prep.
 
+Cleo's dependency-command/doctor parity wave is pushed at `099f7ccf` and
+currently passes locally:
+
+- `go test ./cmd/gc -run 'TestPackRegistry|TestPackRegistryJSON|TestPackDependencyJSON|TestPackAdd|TestPackSync|TestPackCheck|TestPackCommandTree|TestPackOutdated|TestDoImport|TestImport|TestImportStateDoctor|TestDoDoctor|TestJSONSchema|TestJSONUnsupported|TestJSONExecutionFailure|TestSyncLock|TestCheckInstalled|TestFinalizeInitSeedsDefaultPackRegistry|TestFinalizeInitPreservesExistingPackRegistryConfig' -count=1 -timeout=10m`
+- `go test ./internal/packsource ./internal/packregistry ./internal/packman ./internal/config ./internal/gchome ./internal/testenv -count=1`
+- `make check-docs`
+- `make lint-full`
+- `git diff --check`
+
+Live GitHub CI for PR #2351 at `099f7ccf` was pending at the last refresh on
+2026-05-19 UTC. Do not mark the PR ready for review until required checks have
+reported and Donna's manual pass has had room to run.
+
 Additional required gates:
 
 - `gc pack registry` text behavior covers list/add/remove/refresh/search/show.
@@ -1032,7 +1074,7 @@ Additional required gates:
 
 ### Last Updated
 
-2026-05-19 UTC by Cleo after `642d4c2b` CI-green checkpoint
+2026-05-19 UTC by Cleo after `099f7ccf` dependency-command wave push
 
 ## New Machine Bootstrap
 
