@@ -1,6 +1,6 @@
 # Active Workstream Coordination
 
-Last updated: 2026-05-18 12:58 PT by Mabel
+Last updated: 2026-05-18 17:18 PT by Grace
 
 This is a temporary cross-agent coordination channel, not product documentation.
 Do not merge this file into public docs unless we explicitly promote it.
@@ -42,8 +42,9 @@ needed owner in `Reason`.
   before Cleo freezes registry command schemas/tests.
 - `yellow`: Registry-gc-pack needs Mabel to flag any #2126 constraints that
   affect `gc import`, legacy `gc pack fetch/list`, or PackV2 import fields.
-- `yellow`: gc4gc / Operational Substrate has not yet published a Grace handoff
-  into this coordination file.
+- `green`: gc4gc / Operational Substrate handoff is published; stable gc4gc is
+  consumable for artifact inspection and JSON audit prep without Grace
+  mediating.
 - `green`: Cleo's dirty registry work has been pushed to a preservation /
   workstream branch; no meaningful registry local-only state is expected.
 
@@ -673,64 +674,190 @@ gc4gc / Operational Substrate
 
 ### Current Branch / PR
 
-Branch: pending Grace handoff
+Coordination branch: `codex/workstream-coordination`
 
 PR: none expected
 
-Base: pending Grace handoff
+Stable consumer repo: `/Users/dbox/repos/gc/gc4gc` on `master`
+
+Producer/dev repo: `/Users/dbox/repos/gc/gc4gc-grace` on
+`codex/gc4gc-producer-dev`
 
 Owner: Grace
 
 ### Latest State
 
-Grace has been asked to publish a gc4gc handoff into this coordination file.
-No Grace-authored coordination update is present yet.
+The gc4gc side quest is in producer/consumer split mode.
 
-Expected scope:
+Stable consumer state:
 
-- Stable gc4gc consumer worktree and branch.
-- Producer/dev worktree and branch.
-- Producer/consumer split status.
-- Stable run artifact contract.
-- New-machine bootstrap and validation commands.
-- Product issues discovered while using Gas City from Codex.
+- `/Users/dbox/repos/gc/gc4gc` is the stable consumer-facing copy.
+- Branch: `master`.
+- Latest known stable commit: `8d992e5 Point gc4gc at agent runtime checkout`.
+- The repo is local-only in current state; it has no `origin` remote.
+- Mabel/Codex may consume stable artifacts here without Grace mediating.
+
+Producer/dev state:
+
+- `/Users/dbox/repos/gc/gc4gc-grace` is Grace's producer worktree.
+- Branch: `codex/gc4gc-producer-dev`.
+- It may contain unpromoted or temporarily unstable producer changes.
+- Do not ask Mabel/Codex to consume dev-worktree runs unless explicitly
+  requested.
+
+Gas City runtime used by stable gc4gc:
+
+- Stable gc4gc invokes `gc` through
+  `/Users/dbox/repos/gc/gc4gc/assets/scripts/gc-json.sh`.
+- That helper defaults to
+  `/Users/dbox/repos/gc/gascity-agent-runtime`.
+- Expected runtime branch: `codex/gc4gc-agent-runtime-dolt-leak`.
+- Expected managed-Dolt leak fix commits include:
+  - `bd6b0152 Fix managed Dolt test process leaks`
+  - `9c205d19 Tighten Dolt leak guard cleanup`
+  - `5694e03f Clean up city init managed Dolt test`
+
+Stable run artifact contract:
+
+- Run artifacts live under `.runtime/runs/<run-id>/`.
+- Stable core artifacts are:
+  - `input.json`
+  - `status.json`
+  - `execution-manifest.json`
+  - `result.json`
+  - `findings.json`
+  - `summary.md`
+  - `proposed-comment.md`
+- Optional additive artifacts are allowed.
+- Do not rename, remove, or semantically repurpose stable core artifacts without
+  an explicit compatibility plan.
+- Do not write into or inspect `.gc/`; it is opaque Gas City-owned state.
+
+Current stable lanes:
+
+- `pack-pr-review` has a stable canary run for PR #2117:
+  `.runtime/runs/20260515-005739-pack-pr-review-2117`.
+- `gc-json-audit` is promoted as an additive audit lane with docs, skill,
+  auditor agents, runbook, and experimental formula.
+- Jasmine manually validated two JSON audit shards from stable gc4gc:
+  - `.runtime/json-audit/20260516/status-config-supervisor/report.md`
+  - `.runtime/json-audit/20260516/formula-order-dispatch/report.md`
+- Remaining first-wave JSON audit shards:
+  - `session-runtime-wait`
+  - `convoy-workflow`
+  - `mail-events-trace`
+
+Current stable rigs:
+
+- `gc4gc` points at `/Users/dbox/repos/gc/gc4gc`, prefix `gc`, initialized.
+- `agent-runtime` points at `/Users/dbox/repos/gc/gascity-agent-runtime`,
+  prefix `rt`, suspended, not initialized.
+- `json-platform` points at
+  `/Users/dbox/repos/gc/gascity-json-schema-platform`, prefix `jp`,
+  suspended, not initialized.
+- Do not casually initialize or resume suspended rigs during read-oriented
+  audit work.
+
+Known unpromoted work:
+
+- `pack-design-drift-check` exists in Grace's dev worktree and produced a valid
+  canary against PR #2119, but it is not promoted into stable gc4gc yet.
+- Do not treat `pack-design-drift-check` as stable consumer surface until it
+  goes through promotion and validation.
 
 ### Interface Contracts Other Agents Must Honor
 
-- Codex remains the human-facing cockpit.
-- Gas City/gc4gc is the backend execution substrate.
+- gc4gc exists to let Codex users get Gas City benefits inside their existing
+  Codex workflow.
 - Stable consumer worktree remains the only consumer-facing runtime unless
   explicitly promoted.
-- Do not make gc4gc a second cockpit.
+- Do not make gc4gc a parallel human-facing operating surface.
 - Do not change JSON or registry implementation from this lane unless Jasmine
   or Cleo asks.
+- Use `.runtime/` for gc4gc-produced artifacts, not `assets/` and not `.gc/`.
+- Use Gas City surfaces honestly where that is the product path. Wrappers should
+  be explicit, boring, and transparent.
+- For promotion, validate in Grace dev, run a canary, produce a promotion packet,
+  then have the consumer side verify before treating the change as live.
 
 ### Attention Needed
 
-Needs Mabel: yes
+Needs Mabel: no
 
 Needs D. Box: no
 
-Urgency: yellow
+Urgency: green
 
-Reason: Grace has not yet published the gc4gc / Operational Substrate handoff
-or new-machine bootstrap into this coordination file.
+Reason: Handoff is published. Stable gc4gc can be consumed for current artifact
+inspection and JSON audit prep. No immediate human decision is required.
 
 ### Blockers / Cross-Workstream Risks
 
-- `yellow`: gc4gc may need to validate against Jasmine's JSON rollup once that
-  branch is assembled.
+- `yellow`: gc4gc should validate against Jasmine's JSON rollup once that
+  branch is assembled, but should not block on #2222 queue timing.
+- `yellow`: formula-driven JSON audit fanout is not stable yet; keep using
+  manual or bead-per-shard routing until another canary proves the lane.
 - `yellow`: gc4gc may surface product friction for Cleo's registry/gc pack work
   but should not directly alter implementation branches.
+- `yellow`: stable gc4gc is local-only unless/until a remote repo is created or
+  this changes intentionally.
+
+Product gaps discovered while using gc4gc:
+
+- Filed: #2140 separates configured suspension policy from operational pause
+  state.
+- Filed: #2144 makes `gc sling --json` expose partial dispatch failures and
+  backend-readiness blockers.
+- Still likely worth filing:
+  - implicit HQ rig consistency between `gc rig list --json` and
+    `gc status --json`
+  - `gc supervisor status --json`
+  - `gc config show --json`
+  - broader `gc config explain --json`
+  - `gc formula list/show --json`
+  - `gc order list/show --json`
+  - schema backfills for existing stable `--json`
+  - repeated deprecated system order-path warnings on stderr
 
 ### Needed From Other Agents
 
-- Grace: publish the gc4gc handoff and bootstrap details.
-- Jasmine: notify Grace when `codex/json-rollup` is ready for gc4gc smoke
-  testing.
+- Jasmine: continue JSON audit work when ready. Assume #2222 schema-platform
+  baseline will land; do not cram formula/order JSON into #2222.
 - Cleo: notify Grace if registry/gc pack work needs dogfood validation through
   gc4gc.
+- Mabel: safe to consume stable gc4gc artifacts without Grace mediating.
+- Grace: keep producer changes additive, validated, and promoted deliberately.
+
+Recommended next actions:
+
+- Finish remaining first-wave JSON audit shards:
+  `session-runtime-wait`, `convoy-workflow`, and `mail-events-trace`.
+- After another successful canary, consider bead-per-shard routing for the
+  remaining shards.
+- Keep formula-driven fanout experimental until shard routing and artifact
+  consumption are boring.
+- Promote `pack-design-drift-check` only after a fresh validation/promotion pass.
+
+New-machine validation commands:
+
+```sh
+cd /Users/dbox/repos/gc/gc4gc
+git status --short --branch
+git log -4 --oneline
+sed -n '1,30p' assets/scripts/gc-json.sh
+
+git -C /Users/dbox/repos/gc/gascity-agent-runtime status --short --branch
+git -C /Users/dbox/repos/gc/gascity-agent-runtime log --oneline -6
+
+assets/scripts/gc-json.sh rig list --json
+assets/scripts/gc-json.sh formula show gc-json-audit
+printf 'gc4gc fixed-runtime verification\n' \
+  | assets/scripts/gc-json.sh sling --json --dry-run --no-convoy --stdin json-auditor-1
+
+assets/scripts/validate-run.sh .runtime/runs/20260515-005739-pack-pr-review-2117
+find .runtime/json-audit/20260516 -maxdepth 3 -type f -name report.md -print
+```
 
 ### Last Updated
 
-2026-05-18 12:58 PT by Mabel
+2026-05-18 17:18 PT by Grace
