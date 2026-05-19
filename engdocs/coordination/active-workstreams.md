@@ -48,7 +48,7 @@ needed owner in `Reason`.
   `https://github.com/donbox/gc4gc`; stable and producer/dev branches are
   published separately.
 - `green`: Registry-gc-pack is final machine-move ready at
-  `donbox/gascityworkplace:codex/pack-registry-workstream` commit `a64fb1ba`.
+  `gastownhall/gascity:codex/pack-registry-workstream` commit `a64fb1ba`.
   Cleo verified that meaningful registry/gc pack work is pushed, old feeder
   branches are superseded or disposable, and the new machine does not need old
   fan-out worktrees.
@@ -78,7 +78,7 @@ Known portable workstreams:
 - JSON: `gastownhall/gascity:codex/json-rollup` exists and is populated with
   most intended first-rollup work through pushed commit `d3014963`; it is not
   yet final machine-move ready.
-- Registry/gc pack: `donbox/gascityworkplace:codex/pack-registry-workstream`
+- Registry/gc pack: `gastownhall/gascity:codex/pack-registry-workstream`
   is final machine-move ready at pushed checkpoint `a64fb1ba`.
 - gc4gc: `donbox/gc4gc:master`, `donbox/gc4gc:codex/gc4gc-producer-dev`, and
   `donbox/gc4gc:codex/gc4gc-producer-snapshot-20260518` exist.
@@ -475,7 +475,7 @@ Current implementation worktree:
 
 - Worktree: `/Users/dbox/repos/gc-pr2119`
 - Current branch: `codex/pack-registry-workstream`
-- Pushed branch: `donbox/gascityworkplace:codex/pack-registry-workstream`
+- Pushed branch: `gastownhall/gascity:codex/pack-registry-workstream`
 - Current checkpoint commit: `a64fb1ba`
 - State: clean and pushed after registry hardening, first `gc pack`
   dependency-command bridge, docs/reference update, and doctor guard for
@@ -501,7 +501,7 @@ several days rather than preparing small immediate review PRs. Registry
 operations still come first inside that workstream.
 
 The registry/gc pack source of truth is now
-`donbox/gascityworkplace:codex/pack-registry-workstream`.
+`gastownhall/gascity:codex/pack-registry-workstream`.
 
 Dirty/unpushed work has been migrated and pushed. No meaningful local-only
 registry work should remain on the old machine.
@@ -511,7 +511,7 @@ Final machine-move checkpoint:
 - `codex/pack-registry-workstream` contains all meaningful current registry/gc
   pack work Cleo intends to keep.
 - All meaningful local-only registry/gc pack work is pushed to
-  `donbox/gascityworkplace:codex/pack-registry-workstream`.
+  `gastownhall/gascity:codex/pack-registry-workstream`.
 - Feeder branches are either superseded or disposable as listed above.
 - The new machine does not need old fan-out worktrees to continue the
   workstream.
@@ -671,17 +671,16 @@ Additional required gates:
 ### Repos To Clone
 
 - Main implementation repo:
-  `https://github.com/donbox/gascityworkplace.git`
-- Upstream remote to add/fetch:
   `https://github.com/gastownhall/gascity.git`
+- Optional preservation mirror from the old machine:
+  `donbox/gascityworkplace:codex/pack-registry-workstream`
 
 ### Branches To Fetch / Checkout
 
 ```sh
-git clone https://github.com/donbox/gascityworkplace.git /Users/dbox/repos/gc-pr2119
+git clone https://github.com/gastownhall/gascity.git /Users/dbox/repos/gc-pr2119
 cd /Users/dbox/repos/gc-pr2119
-git remote add upstream https://github.com/gastownhall/gascity.git
-git fetch upstream main
+git fetch origin main
 git fetch origin codex/pack-registry-workstream
 git switch codex/pack-registry-workstream
 ```
