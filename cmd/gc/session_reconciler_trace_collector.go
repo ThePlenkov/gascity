@@ -853,7 +853,8 @@ func shouldAutoArmForTrace(reason TraceReasonCode, outcome TraceOutcomeCode) boo
 		TraceReasonQuarantineEntered,
 		TraceReasonStorePartial,
 		TraceReasonConfigDrift,
-		TraceReasonUnknownStateSkipped:
+		TraceReasonUnknownStateSkipped,
+		TraceReasonProviderNotFound:
 		return true
 	}
 	switch outcome {

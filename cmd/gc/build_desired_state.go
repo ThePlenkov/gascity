@@ -524,6 +524,7 @@ func buildDesiredStateWithSessionBeads(
 				fpExtra := buildFingerprintExtra(instanceAgent)
 				tp, err := resolveTemplatePrepared(bp, instanceAgent, qualifiedInstance, fpExtra)
 				if err != nil {
+					recordDesiredStateProviderNotFoundSkip(trace, err, bp, cfgAgent, cfgAgent.QualifiedName(), qualifiedInstance, nil)
 					fmt.Fprintf(stderr, "buildDesiredState: pool instance %q: %v (skipping)\n", qualifiedInstance, err) //nolint:errcheck
 					continue
 				}
@@ -596,6 +597,7 @@ func buildDesiredStateWithSessionBeads(
 		fpExtra := buildFingerprintExtra(spec.Agent)
 		tp, err := resolveTemplatePrepared(bp, spec.Agent, identity, fpExtra)
 		if err != nil {
+			recordDesiredStateProviderNotFoundSkip(trace, err, bp, spec.Agent, spec.Agent.QualifiedName(), identity, nil)
 			fmt.Fprintf(stderr, "buildDesiredState: named session %q: %v (skipping)\n", identity, err) //nolint:errcheck
 			continue
 		}
@@ -714,6 +716,48 @@ func refreshDesiredStateWithSessionBeads(
 	bp.sessionBeads = sessionBeads
 	applySessionBeadDesiredOverlay(bp, cfg, refreshed.State, buildSuspendedRigPaths(cfg), result.PoolScaleCheckPartialTemplates, result.NamedScaleCheckPartialTemplates, nil, stderr)
 	return refreshed
+}
+
+func recordDesiredStateProviderNotFoundSkip(
+	trace *sessionReconcilerTraceCycle,
+	err error,
+	bp *agentBuildParams,
+	cfgAgent *config.Agent,
+	template string,
+	sessionName string,
+	fields traceRecordPayload,
+) {
+	if trace == nil || !errors.Is(err, config.ErrProviderNotFound) {
+		return
+	}
+	payload := traceRecordPayload{
+		"provider": desiredStateProviderName(bp, cfgAgent),
+	}
+	for k, v := range fields {
+		payload[k] = v
+	}
+	trace.recordDecision(
+		string(TraceSiteBuildDesiredStateProviderSkip),
+		template,
+		sessionName,
+		string(TraceReasonProviderNotFound),
+		string(TraceOutcomeSkipped),
+		payload,
+		nil,
+		"",
+	)
+}
+
+func desiredStateProviderName(bp *agentBuildParams, cfgAgent *config.Agent) string {
+	if cfgAgent != nil {
+		if provider := strings.TrimSpace(cfgAgent.Provider); provider != "" {
+			return provider
+		}
+	}
+	if bp != nil && bp.workspace != nil {
+		return strings.TrimSpace(bp.workspace.Provider)
+	}
+	return ""
 }
 
 // collectAssignedWorkBeads queries each store (city + rigs) for actionable
@@ -1471,8 +1515,6 @@ func discoverSessionBeadsWithRoots(
 	trace *sessionReconcilerTraceCycle,
 	stderr io.Writer,
 ) map[string]bool {
-	_ = trace
-
 	sessionBeads := bp.sessionBeads
 	if sessionBeads == nil && bp.beadStore != nil {
 		var err error
@@ -1599,6 +1641,9 @@ func discoverSessionBeadsWithRoots(
 		fpExtra := buildFingerprintExtra(resolveAgent)
 		tp, err := resolveTemplateForSessionBead(bp, resolveAgent, sessionQualifiedName, fpExtra, b)
 		if err != nil {
+			recordDesiredStateProviderNotFoundSkip(trace, err, bp, cfgAgent, cfgAgent.QualifiedName(), sessionQualifiedName, traceRecordPayload{
+				"bead_id": b.ID,
+			})
 			fmt.Fprintf(stderr, "buildDesiredState: bead %s template %q: %v (skipping)\n", b.ID, template, err) //nolint:errcheck
 			continue
 		}

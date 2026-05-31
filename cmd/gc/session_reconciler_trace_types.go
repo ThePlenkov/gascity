@@ -64,6 +64,7 @@ const (
 	TraceSiteConfigReload                   TraceSiteCode = "config.reload"
 	TraceSiteControllerTickPhase            TraceSiteCode = "controller.tick.phase"
 	TraceSiteDesiredStateBuild              TraceSiteCode = "desired_state.build"
+	TraceSiteBuildDesiredStateProviderSkip  TraceSiteCode = "build_desired_state.unresolvable_provider"
 	TraceSiteDemandSnapshot                 TraceSiteCode = "demand_snapshot.load"
 	TraceSiteOrderDispatch                  TraceSiteCode = "orders.dispatch"
 	TraceSitePoolDemandCompute              TraceSiteCode = "pool_desired.compute"
@@ -146,6 +147,7 @@ const (
 	TraceReasonStoreQueryPartial      TraceReasonCode = "store_query_partial"
 	TraceReasonNoWakeReason           TraceReasonCode = "no_wake_reason"
 	TraceReasonFSPressure             TraceReasonCode = "fs_pressure"
+	TraceReasonProviderNotFound       TraceReasonCode = "provider_not_found"
 )
 
 type TraceOutcomeCode string
@@ -556,6 +558,7 @@ func normalizeTraceSiteCode(raw string) (TraceSiteCode, string) {
 		TraceSiteConfigReload,
 		TraceSiteControllerTickPhase,
 		TraceSiteDesiredStateBuild,
+		TraceSiteBuildDesiredStateProviderSkip,
 		TraceSiteDemandSnapshot,
 		TraceSiteOrderDispatch,
 		TraceSitePoolDemandCompute,
@@ -649,7 +652,8 @@ func normalizeTraceReasonCode(raw string) (TraceReasonCode, string) {
 		TraceReasonDrainTimeout,
 		TraceReasonStoreQueryPartial,
 		TraceReasonNoWakeReason,
-		TraceReasonFSPressure:
+		TraceReasonFSPressure,
+		TraceReasonProviderNotFound:
 		return TraceReasonCode(raw), ""
 	default:
 		return TraceReasonUnknown, raw
