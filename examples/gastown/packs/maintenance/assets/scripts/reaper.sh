@@ -521,6 +521,116 @@ while IFS= read -r DB; do
         fi
     fi
 
+    # Workflow roots are expected to stand alone, so they cannot use the
+    # dependency-target rule above. Close only old, inactive roots with no
+    # active non-message dependents and no unresolved dependency edges.
+    get_sql_count "$DB" "stale inactive workflow root wisp" "
+        SELECT COUNT(id) FROM (
+            SELECT w.id FROM \`$DB\`.wisps w
+            WHERE w.status IN ('open', 'hooked', 'in_progress')
+            AND COALESCE(w.issue_type, '') != 'message'
+            AND w.created_at < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+            AND COALESCE(w.updated_at, w.created_at) < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+            AND COALESCE(w.assignee, '') = ''
+            AND (
+                LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')), '')) = 'workflow'
+                OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(w.metadata, '$.\"gc.formula_contract\"')), '')) = 'graph.v2'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                INNER JOIN \`$DB\`.wisps child_wisp ON d.issue_id = child_wisp.id
+                WHERE d.depends_on_wisp_id = w.id
+                AND d.type IN ('parent-child', 'tracks', 'blocks')
+                AND child_wisp.status IN ('open', 'hooked', 'in_progress')
+                AND COALESCE(child_wisp.issue_type, '') != 'message'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                LEFT JOIN \`$DB\`.wisps target_wisp ON d.depends_on_wisp_id = target_wisp.id
+                LEFT JOIN \`$DB\`.issues target_issue ON d.depends_on_issue_id = target_issue.id
+                WHERE d.issue_id = w.id
+                AND d.type IN ('parent-child', 'tracks', 'blocks')
+                AND (
+                    (d.depends_on_wisp_id IS NOT NULL AND (target_wisp.status IS NULL OR target_wisp.status != 'closed'))
+                    OR (d.depends_on_issue_id IS NOT NULL AND (target_issue.status IS NULL OR target_issue.status != 'closed'))
+                    OR (d.depends_on_wisp_id IS NULL AND d.depends_on_issue_id IS NULL)
+                )
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM \`$DB\`.dependencies d
+                LEFT JOIN \`$DB\`.issues target_issue ON d.depends_on_issue_id = target_issue.id
+                WHERE d.issue_id = w.id
+                AND (target_issue.status IS NULL OR target_issue.status != 'closed')
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM \`$DB\`.dependencies d
+                INNER JOIN \`$DB\`.issues child_issue ON d.issue_id = child_issue.id
+                WHERE d.depends_on_issue_id = w.id
+                AND child_issue.status IN ('open', 'in_progress')
+            )
+        ) reaper_workflow_root_candidates
+    "
+    WORKFLOW_ROOT_COUNT=$SQL_COUNT_RESULT
+    if [ "$WORKFLOW_ROOT_COUNT" -gt 0 ] && [ -n "$DRY_RUN" ]; then
+        TOTAL_WOULD_CLOSE_WISPS=$((TOTAL_WOULD_CLOSE_WISPS + WORKFLOW_ROOT_COUNT))
+    fi
+    if [ "$WORKFLOW_ROOT_COUNT" -gt 0 ] && [ -z "$DRY_RUN" ]; then
+        if run_sql_change "$DB" "closing stale inactive workflow roots" "
+            UPDATE \`$DB\`.wisps SET status='closed', closed_at=NOW()
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT w.id FROM \`$DB\`.wisps w
+                    WHERE w.status IN ('open', 'hooked', 'in_progress')
+                    AND COALESCE(w.issue_type, '') != 'message'
+                    AND w.created_at < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+                    AND COALESCE(w.updated_at, w.created_at) < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+                    AND COALESCE(w.assignee, '') = ''
+                    AND (
+                        LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')), '')) = 'workflow'
+                        OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(w.metadata, '$.\"gc.formula_contract\"')), '')) = 'graph.v2'
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                        INNER JOIN \`$DB\`.wisps child_wisp ON d.issue_id = child_wisp.id
+                        WHERE d.depends_on_wisp_id = w.id
+                        AND d.type IN ('parent-child', 'tracks', 'blocks')
+                        AND child_wisp.status IN ('open', 'hooked', 'in_progress')
+                        AND COALESCE(child_wisp.issue_type, '') != 'message'
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                        LEFT JOIN \`$DB\`.wisps target_wisp ON d.depends_on_wisp_id = target_wisp.id
+                        LEFT JOIN \`$DB\`.issues target_issue ON d.depends_on_issue_id = target_issue.id
+                        WHERE d.issue_id = w.id
+                        AND d.type IN ('parent-child', 'tracks', 'blocks')
+                        AND (
+                            (d.depends_on_wisp_id IS NOT NULL AND (target_wisp.status IS NULL OR target_wisp.status != 'closed'))
+                            OR (d.depends_on_issue_id IS NOT NULL AND (target_issue.status IS NULL OR target_issue.status != 'closed'))
+                            OR (d.depends_on_wisp_id IS NULL AND d.depends_on_issue_id IS NULL)
+                        )
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.dependencies d
+                        LEFT JOIN \`$DB\`.issues target_issue ON d.depends_on_issue_id = target_issue.id
+                        WHERE d.issue_id = w.id
+                        AND (target_issue.status IS NULL OR target_issue.status != 'closed')
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.dependencies d
+                        INNER JOIN \`$DB\`.issues child_issue ON d.issue_id = child_issue.id
+                        WHERE d.depends_on_issue_id = w.id
+                        AND child_issue.status IN ('open', 'in_progress')
+                    )
+                ) reaper_workflow_root_candidates
+            )
+        "; then
+            WORKFLOW_ROOT_ROWS=$SQL_CHANGE_ROWS_RESULT
+            DB_CLOSED_WISPS=$((DB_CLOSED_WISPS + WORKFLOW_ROOT_ROWS))
+            TOTAL_CLOSED_WISPS=$((TOTAL_CLOSED_WISPS + WORKFLOW_ROOT_ROWS))
+            DB_MUTATIONS=$((DB_MUTATIONS + WORKFLOW_ROOT_ROWS))
+        fi
+    fi
+
     # Step 2: Purge — delete closed wisps past purge_age.
     get_sql_count "$DB" "closed wisp purge" "
         SELECT COUNT(*) FROM \`$DB\`.wisps

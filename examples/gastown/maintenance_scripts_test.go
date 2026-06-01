@@ -3593,6 +3593,193 @@ exit 0
 	}
 }
 
+func TestReaperClosesStaleInactiveWorkflowRoots(t *testing.T) {
+	cityDir := t.TempDir()
+	binDir := t.TempDir()
+	doltLog := filepath.Join(t.TempDir(), "dolt-args.log")
+	gcLog := filepath.Join(t.TempDir(), "gc.log")
+
+	writeExecutable(t, filepath.Join(binDir, "dolt"), `#!/bin/sh
+printf '%s\n' "$*" >> "$DOLT_ARGS_LOG"
+case "$*" in
+  *"SHOW TABLES FROM"*"LIKE 'wisps'"*)
+    printf 'Tables_in_db\nwisps\n'
+    ;;
+  *"SHOW DATABASES"*)
+    printf 'Database\nbeads\n'
+    ;;
+  *"SHOW COLUMNS FROM"*"wisp_dependencies"*)
+    printf 'Field,Type,Null,Key,Default,Extra\n'
+    printf 'issue_id,varchar,NO,,,\n'
+    printf 'depends_on_issue_id,varchar,YES,,,\n'
+    printf 'depends_on_wisp_id,varchar,YES,,,\n'
+    printf 'depends_on_external,varchar,YES,,,\n'
+    printf 'type,varchar,NO,,,\n'
+    ;;
+  *"COUNT(DISTINCT w.id)"*"d.type IN ('parent-child', 'tracks', 'blocks')"*"NOT EXISTS"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"COUNT(id)"*"JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')"*"workflow"*)
+    printf 'COUNT(id)\n1\n'
+    ;;
+  *"UPDATE "*"wisps SET status='closed'"*"JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')"*"workflow"*)
+    printf 'ROW_COUNT()\n1\n'
+    ;;
+  *"SELECT COUNT(*) FROM "*"wisps"*"status IN ('open', 'hooked', 'in_progress')"*"created_at <"*)
+    printf 'COUNT(*)\n1\n'
+    ;;
+  *"COUNT("*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"SELECT id"*)
+    printf 'id\n'
+    ;;
+esac
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "gc"), `#!/bin/sh
+printf '%s\n' "$*" >> "$GC_CALL_LOG"
+exit 0
+`)
+
+	env := map[string]string{
+		"DOLT_ARGS_LOG":    doltLog,
+		"GC_CALL_LOG":      gcLog,
+		"GC_CITY":          cityDir,
+		"GC_CITY_PATH":     cityDir,
+		"GC_DOLT_HOST":     "127.0.0.1",
+		"GC_DOLT_PORT":     "3307",
+		"GC_DOLT_USER":     "root",
+		"GC_DOLT_PASSWORD": "",
+		"PATH":             binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+	}
+
+	runScript(t, filepath.Join(exampleDir(), "packs", "maintenance", "assets", "scripts", "reaper.sh"), env)
+
+	logData, err := os.ReadFile(doltLog)
+	if err != nil {
+		t.Fatalf("ReadFile(dolt log): %v", err)
+	}
+	log := string(logData)
+	if !strings.Contains(log, "UPDATE `beads`.wisps SET status='closed'") {
+		t.Fatalf("reaper did not close stale inactive workflow roots:\n%s", log)
+	}
+	for _, want := range []string{
+		"JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')",
+		"JSON_EXTRACT(w.metadata, '$.\"gc.formula_contract\"')",
+		"COALESCE(w.updated_at, w.created_at) < DATE_SUB",
+		"COALESCE(w.assignee, '') = ''",
+		"d.depends_on_wisp_id = w.id",
+		"child_wisp.status IN ('open', 'hooked', 'in_progress')",
+		"COALESCE(child_wisp.issue_type, '') != 'message'",
+		"d.issue_id = w.id",
+		"target_wisp.status IS NULL OR target_wisp.status != 'closed'",
+		"target_issue.status IS NULL OR target_issue.status != 'closed'",
+		"dependencies d",
+	} {
+		if !strings.Contains(log, want) {
+			t.Fatalf("workflow-root close query missing %q:\n%s", want, log)
+		}
+	}
+
+	gcData, err := os.ReadFile(gcLog)
+	if err != nil {
+		t.Fatalf("ReadFile(gc log): %v", err)
+	}
+	if !strings.Contains(string(gcData), "closed_wisps:1") {
+		t.Fatalf("reaper summary did not report closed stale workflow root:\n%s", gcData)
+	}
+}
+
+func TestReaperDryRunReportsWouldCloseStaleWorkflowRoots(t *testing.T) {
+	cityDir := t.TempDir()
+	binDir := t.TempDir()
+	doltLog := filepath.Join(t.TempDir(), "dolt-args.log")
+	gcLog := filepath.Join(t.TempDir(), "gc.log")
+
+	writeExecutable(t, filepath.Join(binDir, "dolt"), `#!/bin/sh
+printf '%s\n' "$*" >> "$DOLT_ARGS_LOG"
+case "$*" in
+  *"SHOW TABLES FROM"*"LIKE 'wisps'"*)
+    printf 'Tables_in_db\nwisps\n'
+    ;;
+  *"SHOW DATABASES"*)
+    printf 'Database\nbeads\n'
+    ;;
+  *"SHOW COLUMNS FROM"*"wisp_dependencies"*)
+    printf 'Field,Type,Null,Key,Default,Extra\n'
+    printf 'issue_id,varchar,NO,,,\n'
+    printf 'depends_on_issue_id,varchar,YES,,,\n'
+    printf 'depends_on_wisp_id,varchar,YES,,,\n'
+    printf 'depends_on_external,varchar,YES,,,\n'
+    printf 'type,varchar,NO,,,\n'
+    ;;
+  *"COUNT(DISTINCT w.id)"*"d.type IN ('parent-child', 'tracks', 'blocks')"*"NOT EXISTS"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"COUNT(id)"*"JSON_EXTRACT(w.metadata, '$.\"gc.kind\"')"*"workflow"*)
+    printf 'COUNT(id)\n1\n'
+    ;;
+  *"UPDATE "*"wisps SET status='closed'"*)
+    printf 'dry-run should not update wisps\n' >&2
+    exit 42
+    ;;
+  *"SELECT COUNT(*) FROM "*"wisps"*"status IN ('open', 'hooked', 'in_progress')"*"created_at <"*)
+    printf 'COUNT(*)\n1\n'
+    ;;
+  *"COUNT("*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"SELECT id"*)
+    printf 'id\n'
+    ;;
+esac
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "gc"), `#!/bin/sh
+printf '%s\n' "$*" >> "$GC_CALL_LOG"
+exit 0
+`)
+
+	env := map[string]string{
+		"DOLT_ARGS_LOG":     doltLog,
+		"GC_CALL_LOG":       gcLog,
+		"GC_CITY":           cityDir,
+		"GC_CITY_PATH":      cityDir,
+		"GC_DOLT_HOST":      "127.0.0.1",
+		"GC_DOLT_PORT":      "3307",
+		"GC_DOLT_USER":      "root",
+		"GC_DOLT_PASSWORD":  "",
+		"GC_REAPER_DRY_RUN": "1",
+		"PATH":              binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+	}
+
+	runScript(t, filepath.Join(exampleDir(), "packs", "maintenance", "assets", "scripts", "reaper.sh"), env)
+
+	logData, err := os.ReadFile(doltLog)
+	if err != nil {
+		t.Fatalf("ReadFile(dolt log): %v", err)
+	}
+	if strings.Contains(string(logData), "UPDATE `beads`.wisps SET status='closed'") {
+		t.Fatalf("dry-run executed stale workflow-root update:\n%s", logData)
+	}
+
+	gcData, err := os.ReadFile(gcLog)
+	if err != nil {
+		t.Fatalf("ReadFile(gc log): %v", err)
+	}
+	gcText := string(gcData)
+	if !strings.Contains(gcText, "closed_wisps:0") || !strings.Contains(gcText, "would_close_wisps:1") || !strings.Contains(gcText, "(dry run)") {
+		t.Fatalf("dry-run summary did not report stale workflow-root would-close count:\n%s", gcText)
+	}
+}
+
 func TestReaperEscalatesDoltCommitFailure(t *testing.T) {
 	cityDir := t.TempDir()
 	binDir := t.TempDir()

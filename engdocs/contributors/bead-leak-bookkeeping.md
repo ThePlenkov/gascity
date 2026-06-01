@@ -41,6 +41,14 @@ edges and no issue-level dependencies. Those rows are stranded before graph
 wiring completes, so the reaper now closes only that isolated generated-spec
 shape. Ordinary no-edge wisps remain report-only.
 
+Stale workflow roots have a separate safe-close path. The reaper now matches
+only non-message roots carrying workflow metadata (`gc.kind=workflow` or
+`gc.formula_contract=graph.v2`), requires both old `created_at` and old
+`updated_at`, requires no assignee, rejects roots with active non-message
+dependents, and rejects any unresolved outgoing wisp or issue dependency edge.
+Dry-run includes these roots in `would_close_wisps`; live mode closes only that
+guarded root shape. This is intentionally not a generic age-only root closer.
+
 Live inspection found another boundedness gap in session beads. Several old
 session wisps were `state=asleep` with `sleep_reason=drained` but lacked
 `slept_at`, so `gc session prune --state asleep` skipped them forever.
@@ -184,7 +192,7 @@ still refuses to create arbitrary paths from a malformed error message.
 
 | Path | Beads opened | Bookkeeping owner |
 | --- | --- | --- |
-| `internal/molecule/graph_apply.go` graph workflow instantiation | Wisp root plus logical/step wisps. Non-root graph steps are linked to the root with `tracks`; explicit ordering uses `blocks`; legacy containment uses `parent-child`. | Normal workflow execution closes runnable steps. `molecule.CloseSubtree` closes owned descendants during explicit cleanup. `reaper.sh` now closes stale leftovers when all reaper-owned dependency targets are closed. |
+| `internal/molecule/graph_apply.go` graph workflow instantiation | Wisp root plus logical/step wisps. Non-root graph steps are linked to the root with `tracks`; explicit ordering uses `blocks`; legacy containment uses `parent-child`. | Normal workflow execution closes runnable steps. `molecule.CloseSubtree` closes owned descendants during explicit cleanup. `reaper.sh` now closes stale step leftovers when all reaper-owned dependency targets are closed, and closes stale inactive workflow roots only when root-specific dependency/dependent guards prove there is no live graph pressure. |
 | `cmd/gc/order_dispatch.go` order dispatch | Ephemeral order-tracking bead labeled `gc:order-tracking`; wisp orders also create a molecule/wisp root via `molecule.Instantiate`. | `dispatchOne` defers `closeOrderTrackingBead`. Wisp roots are intentionally not auto-closed solely because descendants finish; the reaper handles stale roots/steps only when dependency evidence proves closure is safe. |
 | `cmd/gc/dispatch_runtime.go` control-dispatcher serve loop | Graph-v2 control beads such as `check`, `drain`, `fanout`, `retry`, `retry-eval`, `scope-check`, and `workflow-finalize` drive workflow progression and may appear in the controller work query. | Routed control work now always reaches `runControlDispatcherWithStoreAndConfig`. Unsupported or misrouted kinds are quarantined with explicit `gc.control_quarantined` metadata; legacy oversized attempt-log failures return a visible serve error instead of masquerading as idle. |
 | Graph-v2 helper paths in `internal/graphv2/invocation.go`, `internal/dispatch/drain.go`, `internal/dispatch/retry.go`, and `internal/dispatch/ralph.go` | Synthetic input convoys, drain-unit convoys, retry attempt/eval beads, and cloned ralph retry/check beads. | Control dispatch owns normal progression and terminal metadata. The synthetic convoys are linked with `tracks` so convoy close/check paths can close completed units; retry and ralph clones remain graph-owned work and fall under graph-v2 finalization plus stale dependency-edge cleanup if stranded. |
@@ -208,7 +216,7 @@ session aliases already covered by the session row (`adoption_barrier`,
 
 | Path | Responsibility | Current status |
 | --- | --- | --- |
-| `examples/gastown/packs/maintenance/assets/scripts/reaper.sh` | Close stale non-closed wisps with closed dependency targets; close isolated generated step-spec debris; purge old closed wisps; auto-close stale city issues; prune closed `gm-*` session beads; prune terminal drained session-state beads; escalate only stale non-message open-wisp backlog. | Patched for `parent-child`/`tracks`/`blocks` closure and purge protection through `wisp_dependencies`, plus a narrow unassigned `Step spec for ...` no-edge cleanup, a `gc session prune --state drained` pass for legacy drained-asleep session rows, and a stale-only alert query so fresh workflow load is not reported as a reaper leak. |
+| `examples/gastown/packs/maintenance/assets/scripts/reaper.sh` | Close stale non-closed wisps with closed dependency targets; close isolated generated step-spec debris; close stale inactive workflow roots with no live dependency pressure; purge old closed wisps; auto-close stale city issues; prune closed `gm-*` session beads; prune terminal drained session-state beads; escalate only stale non-message open-wisp backlog. | Patched for `parent-child`/`tracks`/`blocks` closure and purge protection through `wisp_dependencies`, plus a narrow unassigned `Step spec for ...` no-edge cleanup, guarded workflow-root cleanup, a `gc session prune --state drained` pass for legacy drained-asleep session rows, and a stale-only alert query so fresh workflow load is not reported as a reaper leak. |
 | `examples/gastown/packs/maintenance/assets/scripts/wisp-compact.sh` | Promote old non-closed ephemeral beads for stuck detection and delete expired closed wisps. | Still separate from the safe-close decision. It must not become an age-only closer. |
 | `internal/molecule/cleanup.go` | Close molecule subtrees by ownership metadata and parent-child descendants. | Handles explicit teardown, not abandoned workflow drift. |
 | `cmd/gc/wisp_gc.go` / `wisp autoclose` | Close attached workflow roots and owned workflow beads from CLI-driven cleanup. Purge expired closed wisps, order-tracking beads, and closed graph-v2 workflow-root closures. | Patched to include workflow-root closure GC through indexed metadata queries guarded by `sourceworkflow.IsWorkflowRoot`. |
@@ -222,8 +230,14 @@ session aliases already covered by the session row (`adoption_barrier`,
 
 ## Verification Snapshot
 
-- `go test ./examples/gastown -count=1` passed for the reaper and wisp-GC
-  changes and the deacon patrol burn-before-backoff regression.
+- `go test ./examples/gastown -run 'TestReaper(ClosesStaleInactiveWorkflowRoots|DryRunReportsWouldCloseStaleWorkflowRoots)$' -count=1`
+  failed before the guarded workflow-root cleanup because the reaper emitted no
+  root candidate query/update and dry-run reported `would_close_wisps:0`; it
+  passed after the root-safe cleanup path was added.
+- `go test ./examples/gastown -run 'TestReaper' -count=1` passed for the full
+  reaper maintenance-script regression set.
+- `go test ./examples/gastown -count=1` passed for the reaper, wisp-GC, and
+  deacon patrol burn-before-backoff regressions.
 - `go test ./examples/gastown -run TestDeaconPatrolNextIterationBurnsCurrentBeforeBackoff -count=1`
   failed before the `mol-deacon-patrol` version 15 change and passed after it.
 - `go test ./internal/session -count=1` passed for the session prune timestamp
@@ -365,14 +379,12 @@ session aliases already covered by the session row (`adoption_barrier`,
   continues to support the stale-only reaper alert boundary. This is not enough
   to close `ga-k5ds4` because its AC explicitly asks for raw open wisps below
   500 in both `ga` and `mc`.
-- Stale stuck-root follow-up boundary for `ga-k5ds4`: do not add a bare
-  age-only root closer. A safe implementation needs dry-run-first reporting and
-  should close only old workflow/root wisps that have no open non-message
-  dependents, no active hook/assignee evidence, no recent `updated_at`, and no
-  unresolved dependency edge; it should leave mail backlog and active workflow
-  pressure out of the reaper-safe closure set. This remains the path for
-  satisfying the raw-count AC without turning the reaper into a generic
-  age-based work closer.
+- Stale stuck-root cleanup for `ga-k5ds4` is now implemented in the branch
+  reaper, but it has not yet been applied to the live `/data/projects/maintainer-city`
+  Dolt server. Remaining proof is a branch dry-run/live run followed by raw
+  open-wisp remeasurement. Keep `ga-k5ds4` open until `ga` and `mc` are below
+  the literal raw `<500` AC, or the AC is explicitly revised to the stale
+  non-message invariant.
 - Live route-key inspection and repair at 2026-06-01T10:58:02Z found `139`
   `ga.wisps` workflow roots with `gc.run_target` and missing `gc.routed_to`:
   `129` closed, `6` in progress, and `4` open. A later all-database scan at
