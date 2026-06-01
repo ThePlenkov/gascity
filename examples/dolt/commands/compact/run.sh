@@ -50,7 +50,10 @@
 #
 # Remote push failures are recorded in compact-pending-push markers and do not
 # fail local compaction. Later runs retry those markers before threshold skips,
-# and unverified remote heads must become ancestry-verifiable before push.
+# and unverified remote heads must become ancestry-verifiable before push. If
+# orphaned oldgen archives are present while a pending push blocks normal
+# threshold-based compaction, the retry path runs a local full GC before the
+# remote repair attempt; that reclaims local storage without flattening again.
 # Surgical mode (preserve recent N commits via interactive rebase) is
 # intentionally not implemented; flatten is sufficient for bloat recovery
 # and avoids the rebase-vs-concurrent-write hazards.
@@ -1498,10 +1501,6 @@ flatten_database() {
   fi
 
   if has_compact_marker "$pending_push_dir" "$db"; then
-    if [ -n "$dry_run" ]; then
-      printf 'compact: db=%s pending_push=present — dry-run (would retry remote push)\n' "$db"
-      return 0
-    fi
     pending_remote=$(compact_marker_value "$pending_push_dir" "$db" remote || true)
     pending_expected_remote_head=$(compact_marker_value "$pending_push_dir" "$db" expected_remote_head || true)
     pending_expected_remote_head_verified=$(compact_marker_value "$pending_push_dir" "$db" expected_remote_head_verified || true)
@@ -1557,7 +1556,22 @@ flatten_database() {
           ;;
       esac
     fi
-    ensure_remote_push_retry_fresh "$pending_push_dir" "$db" "pending_push" || return 1
+    if [ "$legacy_pending_push_recovered" != "1" ]; then
+      ensure_remote_push_retry_fresh "$pending_push_dir" "$db" "pending_push" || return 1
+    fi
+    if oldgen_has_files "$db"; then
+      if [ -n "$dry_run" ]; then
+        printf 'compact: db=%s pending_push oldgen_archives=present — dry-run (would run local DOLT_GC --full before remote push retry)\n' "$db"
+      else
+        printf 'compact: db=%s pending_push oldgen_archives=present — running local DOLT_GC --full before remote push retry\n' "$db"
+        start=$(date +%s)
+        run_full_gc "$db" "pending-push local-GC" "pending-push local-GC" "$start" || return 1
+      fi
+    fi
+    if [ -n "$dry_run" ]; then
+      printf 'compact: db=%s pending_push=present — dry-run (would retry remote push)\n' "$db"
+      return 0
+    fi
     printf 'compact: db=%s pending_push=present — retrying remote push before threshold check\n' "$db"
     push_remote_after_compaction "$db" "$pending_remote" "$pending_expected_remote_head" "${pending_expected_remote_head_verified:-0}" "retry" "$pending_compacted_from_head" "$pending_local_branch" "$pending_remote_branch"
     return $?
