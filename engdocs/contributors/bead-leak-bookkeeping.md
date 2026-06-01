@@ -75,7 +75,9 @@ external target shape (`GC_DOLT_MANAGED_LOCAL=0`, local `GC_DOLT_HOST`, explicit
 targets still skip without querying. This covers cities such as
 `/data/projects/maintainer-city`, where the canonical endpoint is a locally
 managed-by-operator Dolt server on `127.0.0.1:3307`, not a `gc start` managed
-runtime.
+runtime. When a database is already under compaction quarantine, the command now
+prints the marker path, reason, and creation timestamp so the required manual
+review artifact is visible from the failed run output.
 
 ## Creation Paths
 
@@ -134,5 +136,6 @@ runtime.
   quarantine marker:
   `/data/projects/maintainer-city/.gc/runtime/packs/dolt/compact-quarantine/mc`
   with `reason=post-flatten value hash changed without row-count increase` and
-  `created_at=2026-05-20T11:14:29Z`. That marker requires separate manual
-  integrity review before live compaction or full GC can run for `mc`.
+  `created_at=2026-05-20T11:14:29Z`; the dry-run output now reports those marker
+  details directly. That marker requires separate manual integrity review before
+  live compaction or full GC can run for `mc`.
