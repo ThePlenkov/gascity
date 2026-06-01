@@ -1623,9 +1623,7 @@ flatten_database() {
           ;;
       esac
     fi
-    if [ "$legacy_pending_push_recovered" != "1" ]; then
-      ensure_remote_push_retry_fresh "$pending_push_dir" "$db" "pending_push" || return 1
-    fi
+    ensure_remote_push_retry_fresh "$pending_push_dir" "$db" "pending_push" || return 1
     if oldgen_has_files "$db"; then
       if [ -n "$dry_run" ]; then
         printf 'compact: db=%s pending_push oldgen_archives=present — dry-run (would run local DOLT_GC --full before remote push retry)\n' "$db"
