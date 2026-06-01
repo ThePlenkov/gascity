@@ -443,7 +443,7 @@ func (m *memoryOrderDispatcher) dispatch(ctx context.Context, cityPath string, n
 			storeKeysForGate = append(storeKeysForGate, orderStoreTargetKey(legacyOrderCityTarget(cityPath, m.cfg)))
 		}
 		scoped := a.ScopedName()
-		hasOpenWork, err := trackingIndex.hasOpenWork(storesForGate, storeKeysForGate, scoped, m.hasOpenWorkInStoresStrict)
+		hasOpenWork, err := trackingIndex.hasOpenWork(storesForGate, storeKeysForGate, scoped, m.hasOpenWorkInStoresStrict, false)
 		if err != nil {
 			logDispatchError(m.stderr, "gc: order dispatch: checking open work for %s: %v", scoped, err)
 			continue
@@ -528,7 +528,7 @@ func (m *memoryOrderDispatcher) dispatch(ctx context.Context, cityPath string, n
 		}
 
 		// Skip dispatch if previous work hasn't been processed yet.
-		hasOpenWork, err = trackingIndex.hasOpenWork(storesForGate, storeKeysForGate, scoped, m.hasOpenWorkInStoresStrict)
+		hasOpenWork, err = trackingIndex.hasOpenWork(storesForGate, storeKeysForGate, scoped, m.hasOpenWorkInStoresStrict, true)
 		if err != nil {
 			logDispatchError(m.stderr, "gc: order dispatch: checking open work for %s: %v", scoped, err)
 			continue
@@ -651,6 +651,7 @@ func (idx *orderDispatchTrackingIndex) hasOpenWork(
 	storeKeys []string,
 	scopedName string,
 	fallback func([]beads.Store, string) (bool, error),
+	requireStrictFallback bool,
 ) (bool, error) {
 	if idx == nil {
 		return fallback(stores, scopedName)
@@ -679,7 +680,7 @@ func (idx *orderDispatchTrackingIndex) hasOpenWork(
 			sawTrackingHistory = true
 		}
 	}
-	if sawTrackingHistory {
+	if sawTrackingHistory && !requireStrictFallback {
 		return false, nil
 	}
 	return fallback(stores, scopedName)
