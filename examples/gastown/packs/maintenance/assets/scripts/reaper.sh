@@ -446,6 +446,79 @@ while IFS= read -r DB; do
         fi
     done
 
+    # Generated step-spec wisps can be left behind without any graph edges
+    # when workflow materialization aborts before wiring dependencies. Close
+    # only old, unassigned, isolated generated specs; ordinary no-edge wisps
+    # remain report-only.
+    get_sql_count "$DB" "stale isolated step-spec wisp" "
+        SELECT COUNT(*) FROM \`$DB\`.wisps w
+        WHERE w.status IN ('open', 'hooked', 'in_progress')
+        AND w.issue_type = 'spec'
+        AND w.title LIKE 'Step spec for %'
+        AND COALESCE(w.assignee, '') = ''
+        AND w.created_at < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+        AND NOT EXISTS (
+            SELECT 1 FROM \`$DB\`.wisp_dependencies d
+            WHERE d.issue_id = w.id
+            AND d.type IN ('parent-child', 'tracks', 'blocks')
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM \`$DB\`.wisp_dependencies d
+            WHERE d.depends_on_wisp_id = w.id
+            AND d.type IN ('parent-child', 'tracks', 'blocks')
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM \`$DB\`.dependencies d
+            WHERE d.issue_id = w.id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM \`$DB\`.dependencies d
+            WHERE d.depends_on_issue_id = w.id
+        )
+    "
+    ISOLATED_SPEC_COUNT=$SQL_COUNT_RESULT
+    if [ "$ISOLATED_SPEC_COUNT" -gt 0 ] && [ -n "$DRY_RUN" ]; then
+        TOTAL_WOULD_CLOSE_WISPS=$((TOTAL_WOULD_CLOSE_WISPS + ISOLATED_SPEC_COUNT))
+    fi
+    if [ "$ISOLATED_SPEC_COUNT" -gt 0 ] && [ -z "$DRY_RUN" ]; then
+        if run_sql_change "$DB" "closing stale isolated step-spec wisps" "
+            UPDATE \`$DB\`.wisps SET status='closed', closed_at=NOW()
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT w.id FROM \`$DB\`.wisps w
+                    WHERE w.status IN ('open', 'hooked', 'in_progress')
+                    AND w.issue_type = 'spec'
+                    AND w.title LIKE 'Step spec for %'
+                    AND COALESCE(w.assignee, '') = ''
+                    AND w.created_at < DATE_SUB(NOW(), INTERVAL $MAX_AGE_H HOUR)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                        WHERE d.issue_id = w.id
+                        AND d.type IN ('parent-child', 'tracks', 'blocks')
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.wisp_dependencies d
+                        WHERE d.depends_on_wisp_id = w.id
+                        AND d.type IN ('parent-child', 'tracks', 'blocks')
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.dependencies d
+                        WHERE d.issue_id = w.id
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM \`$DB\`.dependencies d
+                        WHERE d.depends_on_issue_id = w.id
+                    )
+                ) reaper_isolated_step_spec_candidates
+            )
+        "; then
+            ISOLATED_SPEC_ROWS=$SQL_CHANGE_ROWS_RESULT
+            DB_CLOSED_WISPS=$((DB_CLOSED_WISPS + ISOLATED_SPEC_ROWS))
+            TOTAL_CLOSED_WISPS=$((TOTAL_CLOSED_WISPS + ISOLATED_SPEC_ROWS))
+            DB_MUTATIONS=$((DB_MUTATIONS + ISOLATED_SPEC_ROWS))
+        fi
+    fi
+
     # Step 2: Purge — delete closed wisps past purge_age.
     get_sql_count "$DB" "closed wisp purge" "
         SELECT COUNT(*) FROM \`$DB\`.wisps

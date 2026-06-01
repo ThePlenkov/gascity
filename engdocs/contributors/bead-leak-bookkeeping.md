@@ -33,6 +33,12 @@ issue-level `dependencies` table. The reaper's wisp close and purge paths now
 probe and query `wisp_dependencies`; the stale issue auto-close exclusion path
 still uses `dependencies`.
 
+Live inspection also found generated step-spec debris: old unassigned `spec`
+wisps titled `Step spec for ...` with no incoming or outgoing wisp dependency
+edges and no issue-level dependencies. Those rows are stranded before graph
+wiring completes, so the reaper now closes only that isolated generated-spec
+shape. Ordinary no-edge wisps remain report-only.
+
 `ga-6pbt8` identified that `runControlDispatcherWithStoreAndConfig`
 hard-quarantined every `ProcessControl` error except `ErrControlPending`.
 That swallowed transient store/controller faults before the serve loop could use
@@ -75,7 +81,7 @@ are de-duplicated.
 
 | Path | Responsibility | Current status |
 | --- | --- | --- |
-| `examples/gastown/packs/maintenance/assets/scripts/reaper.sh` | Close stale non-closed wisps with closed dependency targets; purge old closed wisps; auto-close stale city issues; prune closed `gm-*` session beads. | Patched for `parent-child`/`tracks`/`blocks` closure and purge protection through `wisp_dependencies`. |
+| `examples/gastown/packs/maintenance/assets/scripts/reaper.sh` | Close stale non-closed wisps with closed dependency targets; close isolated generated step-spec debris; purge old closed wisps; auto-close stale city issues; prune closed `gm-*` session beads. | Patched for `parent-child`/`tracks`/`blocks` closure and purge protection through `wisp_dependencies`, plus a narrow unassigned `Step spec for ...` no-edge cleanup. |
 | `examples/gastown/packs/maintenance/assets/scripts/wisp-compact.sh` | Promote old non-closed ephemeral beads for stuck detection and delete expired closed wisps. | Still separate from the safe-close decision. It must not become an age-only closer. |
 | `internal/molecule/cleanup.go` | Close molecule subtrees by ownership metadata and parent-child descendants. | Handles explicit teardown, not abandoned workflow drift. |
 | `cmd/gc/wisp_gc.go` / `wisp autoclose` | Close attached workflow roots and owned workflow beads from CLI-driven cleanup. Purge expired closed wisps, order-tracking beads, and closed graph-v2 workflow-root closures. | Patched to include workflow-root closure GC through indexed metadata queries guarded by `sourceworkflow.IsWorkflowRoot`. |
@@ -88,9 +94,9 @@ are de-duplicated.
   This code path is not present in this rebase-main worktree as of this report.
 - Live dry-run evidence on 2026-06-01 against `/data/projects/maintainer-city`
   with `gc` shimmed to `/bin/true`:
-  `reaper — stale_wisps:1397, closed_wisps:0, purged:0, sessions-pruned:0, closed:0, skipped_non_city_issues:0, mail_wisps:123, would_close_wisps:1029 (dry run)`.
+  `reaper — stale_wisps:1397, closed_wisps:0, purged:0, sessions-pruned:0, closed:0, skipped_non_city_issues:0, mail_wisps:124, would_close_wisps:1235 (dry run)`.
 - Direct SQL against the same Dolt server matched the dry-run first-pass
-  safe-close total: `bd=0`, `ga=884`, `gg=0`, `gp=0`, `gt=67`, `mc=0`,
-  `my_db=78`, `rig=0` for `1029` total. `ga` still had `2036` open
-  non-message wisps and `mc` had `394`, so the safe close path is now correct
-  but a destructive live drain was not run from this patch.
+  close total: `bd=0`, `ga=1024`, `gg=0`, `gp=0`, `gt=81`, `mc=0`,
+  `my_db=130`, `rig=0` for `1235` total. The `ga` total is `884` safe
+  dependency-edge closures plus `140` isolated generated step specs. A
+  destructive live drain was not run from this patch.

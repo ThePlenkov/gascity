@@ -2739,6 +2739,9 @@ case "$*" in
         ;;
     esac
     ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
   *"UPDATE "*"wisps SET status='closed'"*)
     printf 'ROW_COUNT()\n1\n'
     ;;
@@ -3116,6 +3119,98 @@ exit 0
 	}
 }
 
+func TestReaperClosesStaleIsolatedStepSpecWisps(t *testing.T) {
+	cityDir := t.TempDir()
+	binDir := t.TempDir()
+	doltLog := filepath.Join(t.TempDir(), "dolt-args.log")
+	gcLog := filepath.Join(t.TempDir(), "gc.log")
+
+	writeExecutable(t, filepath.Join(binDir, "dolt"), `#!/bin/sh
+printf '%s\n' "$*" >> "$DOLT_ARGS_LOG"
+case "$*" in
+  *"SHOW TABLES FROM"*"LIKE 'wisps'"*)
+    printf 'Tables_in_db\nwisps\n'
+    ;;
+  *"SHOW DATABASES"*)
+    printf 'Database\nbeads\n'
+    ;;
+  *"SHOW COLUMNS FROM"*"wisp_dependencies"*)
+    printf 'Field,Type,Null,Key,Default,Extra\n'
+    printf 'issue_id,varchar,NO,,,\n'
+    printf 'depends_on_issue_id,varchar,YES,,,\n'
+    printf 'depends_on_wisp_id,varchar,YES,,,\n'
+    printf 'depends_on_external,varchar,YES,,,\n'
+    printf 'type,varchar,NO,,,\n'
+    ;;
+  *"COUNT(DISTINCT w.id)"*"d.type IN ('parent-child', 'tracks', 'blocks')"*"NOT EXISTS"*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*"d.depends_on_wisp_id = w.id"*)
+    printf 'COUNT(*)\n1\n'
+    ;;
+  *"UPDATE "*"wisps SET status='closed'"*"issue_type = 'spec'"*"Step spec for %"*"d.depends_on_wisp_id = w.id"*)
+    printf 'ROW_COUNT()\n1\n'
+    ;;
+  *"SELECT COUNT(*) FROM "*"wisps"*"status IN ('open', 'hooked', 'in_progress')"*"created_at <"*)
+    printf 'COUNT(*)\n1\n'
+    ;;
+  *"COUNT("*)
+    printf 'COUNT(*)\n0\n'
+    ;;
+  *"SELECT id"*)
+    printf 'id\n'
+    ;;
+esac
+exit 0
+`)
+	writeExecutable(t, filepath.Join(binDir, "gc"), `#!/bin/sh
+printf '%s\n' "$*" >> "$GC_CALL_LOG"
+exit 0
+`)
+
+	env := map[string]string{
+		"DOLT_ARGS_LOG":    doltLog,
+		"GC_CALL_LOG":      gcLog,
+		"GC_CITY":          cityDir,
+		"GC_CITY_PATH":     cityDir,
+		"GC_DOLT_HOST":     "127.0.0.1",
+		"GC_DOLT_PORT":     "3307",
+		"GC_DOLT_USER":     "root",
+		"GC_DOLT_PASSWORD": "",
+		"PATH":             binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+	}
+
+	runScript(t, filepath.Join(exampleDir(), "packs", "maintenance", "assets", "scripts", "reaper.sh"), env)
+
+	logData, err := os.ReadFile(doltLog)
+	if err != nil {
+		t.Fatalf("ReadFile(dolt log): %v", err)
+	}
+	log := string(logData)
+	if !strings.Contains(log, "UPDATE `beads`.wisps SET status='closed'") {
+		t.Fatalf("reaper did not close stale isolated generated step-spec wisps:\n%s", log)
+	}
+	for _, want := range []string{
+		"w.issue_type = 'spec'",
+		"w.title LIKE 'Step spec for %'",
+		"COALESCE(w.assignee, '') = ''",
+		"d.issue_id = w.id",
+		"d.depends_on_wisp_id = w.id",
+	} {
+		if !strings.Contains(log, want) {
+			t.Fatalf("isolated step-spec close query missing %q:\n%s", want, log)
+		}
+	}
+
+	gcData, err := os.ReadFile(gcLog)
+	if err != nil {
+		t.Fatalf("ReadFile(gc log): %v", err)
+	}
+	if !strings.Contains(string(gcData), "closed_wisps:1") {
+		t.Fatalf("reaper summary did not report closed isolated step-spec wisp:\n%s", gcData)
+	}
+}
+
 func TestReaperClosesStaleStepWispsWhenTracksAndBlocksTargetsAreClosed(t *testing.T) {
 	cityDir := t.TempDir()
 	binDir := t.TempDir()
@@ -3154,6 +3249,9 @@ case "$*" in
     ;;
   *"UPDATE "*"wisps SET status='closed'"*"d.type IN ('parent-child', 'tracks', 'blocks')"*"NOT EXISTS"*)
     printf 'ROW_COUNT()\n1\n'
+    ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*)
+    printf 'COUNT(*)\n0\n'
     ;;
   *"SELECT COUNT(*) FROM "*"wisps"*"status IN ('open', 'hooked', 'in_progress')"*"created_at <"*)
     printf 'COUNT(*)\n1\n'
@@ -3236,6 +3334,9 @@ case "$*" in
     ;;
   *"COUNT(DISTINCT w.id)"*"d.type IN ('parent-child', 'tracks', 'blocks')"*"NOT EXISTS"*)
     printf 'COUNT(*)\n2\n'
+    ;;
+  *"COUNT("*"issue_type = 'spec'"*"Step spec for %"*)
+    printf 'COUNT(*)\n0\n'
     ;;
   *"UPDATE "*"wisps SET status='closed'"*)
     printf 'dry-run should not update wisps\n' >&2

@@ -11,6 +11,8 @@ Current behavior:
 - Observes open/hooked/in_progress wisps older than max_age (default 24h)
 - Closes only the subset whose parent-child/tracks/blocks dependency targets
   are all closed
+- Closes old generated `Step spec for ...` wisps only when they are unassigned
+  and have no incoming or outgoing dependency edges
 - Purges (deletes) closed wisps past purge_age (default 7 days)
 - Auto-closes stale city issues open >30 days with no status change
 - Reports stale issue candidates in non-city databases without closing them
@@ -63,7 +65,8 @@ examples below use `<max_age_hours>`, `<purge_age_hours>`, and
 Non-closed wisps are closed only when every parent-child/tracks/blocks
 dependency target is closed. Wisps without a parent/tracks/blocks edge, or
 with an unresolved or non-closed target record, are observed, not closed by age
-alone. Purging deletes rows —
+alone. Generated step-spec debris is closed only when it is unassigned and
+isolated from both the wisp graph and issue dependency graph. Purging deletes rows —
 irreversible but only targets already-closed wisps past retention. Auto-close
 excludes P0/P1, epics, and issues with active dependencies. Non-city database
 issue candidates are report-only until the maintenance pack has an explicit
@@ -156,6 +159,32 @@ AND NOT EXISTS (
 -- Repeat the count/update pair until this returns zero so multi-level stale
 -- child chains converge in one reaper run.
 
+-- Generated step specs stranded before graph wiring completed
+SELECT COUNT(*) FROM wisps w
+WHERE w.status IN ('open', 'hooked', 'in_progress')
+AND w.issue_type = 'spec'
+AND w.title LIKE 'Step spec for %'
+AND COALESCE(w.assignee, '') = ''
+AND w.created_at < DATE_SUB(NOW(), INTERVAL <max_age_hours> HOUR)
+AND NOT EXISTS (
+  SELECT 1 FROM wisp_dependencies d
+  WHERE d.issue_id = w.id
+  AND d.type IN ('parent-child', 'tracks', 'blocks')
+)
+AND NOT EXISTS (
+  SELECT 1 FROM wisp_dependencies d
+  WHERE d.depends_on_wisp_id = w.id
+  AND d.type IN ('parent-child', 'tracks', 'blocks')
+)
+AND NOT EXISTS (
+  SELECT 1 FROM dependencies d
+  WHERE d.issue_id = w.id
+)
+AND NOT EXISTS (
+  SELECT 1 FROM dependencies d
+  WHERE d.depends_on_issue_id = w.id
+);
+
 -- Closed wisps past purge_age (purge candidates)
 SELECT COUNT(*) FROM wisps
 WHERE status = 'closed'
@@ -202,6 +231,8 @@ wisps by age alone.
 `wisp-compact.sh` promotes non-closed wisps past TTL for stuck detection.
 The close step repeats until no schema-safe candidates remain, so a stale
 multi-level child chain whose root is closed converges in one reaper run.
+Generated step specs stranded before dependency wiring completed are also
+closed when they are old, unassigned, and isolated from both dependency graphs.
 
 **1. For each database with stale non-closed wisps:**
 ```sql
@@ -249,6 +280,7 @@ AND id IN (
 **3. Record results:**
 - Count stale non-closed wisps per database
 - Count dependency-safe stale wisps closed per database
+- Count isolated generated step specs closed per database
 - Any errors encountered
 
 **4. Alert check:**
