@@ -1304,6 +1304,39 @@ func TestCachingStoreCachedReadyUsesWriteThroughDependencies(t *testing.T) {
 	}
 }
 
+func TestCachingStoreCachedListCanIncludeClosedCachedRows(t *testing.T) {
+	t.Parallel()
+	mem := beads.NewMemStore()
+	cache := beads.NewCachingStoreForTest(mem, nil)
+	if err := cache.PrimeActive(); err != nil {
+		t.Fatalf("PrimeActive: %v", err)
+	}
+
+	row, err := cache.Create(beads.Bead{
+		Title:     "order tracking",
+		Labels:    []string{"order-run:digest"},
+		Ephemeral: true,
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := cache.Close(row.ID); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	rows, ok := cache.CachedList(beads.ListQuery{
+		Label:         "order-run:digest",
+		IncludeClosed: true,
+		TierMode:      beads.TierBoth,
+	})
+	if !ok {
+		t.Fatal("CachedList(IncludeClosed) unavailable, want cache-only result")
+	}
+	if len(rows) != 1 || rows[0].ID != row.ID || rows[0].Status != "closed" || !rows[0].Ephemeral {
+		t.Fatalf("CachedList(IncludeClosed) = %+v, want closed cached wisp row %s", rows, row.ID)
+	}
+}
+
 func TestCachingStoreReadyFallsBackAfterDependencyOmittingUpdateEvent(t *testing.T) {
 	t.Parallel()
 

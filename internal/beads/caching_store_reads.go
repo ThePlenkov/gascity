@@ -100,13 +100,11 @@ func liveListQuery(query ListQuery) ListQuery {
 	return query
 }
 
-// CachedList returns query results from the in-memory cache only. The boolean
-// reports whether the cache was initialized and clean enough to answer without
-// touching the backing store.
+// CachedList returns query results from the in-memory cache only. IncludeClosed
+// is allowed, but it only reflects closed rows still retained in the current
+// cache. The boolean reports whether the cache was initialized and clean enough
+// to answer without touching the backing store.
 func (c *CachingStore) CachedList(query ListQuery) ([]Bead, bool) {
-	if query.IncludesClosed() {
-		return nil, false
-	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.state != cacheLive && c.state != cachePartial {

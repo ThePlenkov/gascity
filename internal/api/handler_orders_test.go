@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -967,7 +968,7 @@ func TestHandleOrderCheckUsesCachedHistoryWhenAvailable(t *testing.T) {
 	}
 }
 
-func TestHandleOrderCheckFallsBackToLiveHistoryWhenCacheUnavailable(t *testing.T) {
+func TestHandleOrderCheckRejectsUnavailableCachedHistory(t *testing.T) {
 	fs := newFakeState(t)
 	cachedStore := &cachedOnlyOrderHistoryStore{
 		Store: beads.NewMemStore(),
@@ -991,30 +992,14 @@ func TestHandleOrderCheckFallsBackToLiveHistoryWhenCacheUnavailable(t *testing.T
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body = %s", w.Code, http.StatusOK, w.Body.String())
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d; body = %s", w.Code, http.StatusServiceUnavailable, w.Body.String())
 	}
-
-	var resp struct {
-		Checks []struct {
-			Due            bool    `json:"due"`
-			LastRunOutcome *string `json:"last_run_outcome"`
-		} `json:"checks"`
+	if !strings.Contains(w.Body.String(), "cache_not_live:") {
+		t.Fatalf("body = %s, want cache_not_live detail", w.Body.String())
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(resp.Checks) != 1 {
-		t.Fatalf("len(checks) = %d, want 1", len(resp.Checks))
-	}
-	if resp.Checks[0].Due {
-		t.Fatal("due = true, want false from live recent run")
-	}
-	if resp.Checks[0].LastRunOutcome == nil || *resp.Checks[0].LastRunOutcome != "success" {
-		t.Fatalf("last_run_outcome = %v, want success", resp.Checks[0].LastRunOutcome)
-	}
-	if cachedStore.includeClosedListCalls == 0 {
-		t.Fatal("IncludeClosed List calls = 0, want live fallback when cache is unavailable")
+	if cachedStore.includeClosedListCalls != 0 {
+		t.Fatalf("IncludeClosed List calls = %d, want 0 live fallback calls", cachedStore.includeClosedListCalls)
 	}
 }
 

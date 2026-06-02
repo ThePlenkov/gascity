@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"strconv"
@@ -86,7 +87,16 @@ func (s *Server) humaHandleOrderCheck(_ context.Context, input *OrderCheckInput)
 		if err != nil {
 			storeInfos = nil
 		}
-		history, _ := orderHistoryBeadsAcrossStoreInfosForCheck(storeInfos, a.ScopedName(), 1, time.Time{}, input.Fresh)
+		var history []orderHistoryStoreBead
+		if orderCheckNeedsHistory(a) {
+			history, err = orderHistoryBeadsAcrossStoreInfosForCheck(storeInfos, a.ScopedName(), 1, time.Time{}, input.Fresh)
+			if err != nil {
+				if errors.Is(err, beads.ErrCacheUnavailable) {
+					return nil, huma.Error503ServiceUnavailable("cache_not_live: order history cache unavailable: " + err.Error())
+				}
+				return nil, huma.Error500InternalServerError("order history check failed")
+			}
+		}
 		result := checkOrderTriggerForAPI(a, now, history, storeInfos, ep, input.Fresh)
 		cr := orderCheckResponse{
 			Name:       a.Name,
@@ -127,6 +137,15 @@ func hasConditionOrder(aa []orders.Order) bool {
 		}
 	}
 	return false
+}
+
+func orderCheckNeedsHistory(a orders.Order) bool {
+	switch a.Trigger {
+	case "cooldown", "cron", "event":
+		return true
+	default:
+		return false
+	}
 }
 
 func checkOrderTriggerForAPI(a orders.Order, now time.Time, history []orderHistoryStoreBead, infos []workflowStoreInfo, ep events.Provider, fresh bool) orders.TriggerResult {
@@ -439,7 +458,7 @@ func orderHistoryBeadsAcrossStoreInfosCachedFirst(infos []workflowStoreInfo, sco
 			var cacheOK bool
 			rows, cacheOK = cached.CachedList(query)
 			if !cacheOK {
-				rows, err = info.store.List(query)
+				return nil, fmt.Errorf("listing order history from cache for %s: %w", info.ref, beads.ErrCacheUnavailable)
 			}
 		} else {
 			rows, err = info.store.List(query)

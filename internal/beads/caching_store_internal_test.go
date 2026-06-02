@@ -373,15 +373,12 @@ func TestCachingStoreHandlesCachedReadsNeverRetryPartialPrime(t *testing.T) {
 	}
 
 	backing.partialAllowScan = false
-	cache.primeMu.Lock()
-	cache.lastFullPrimeStartedAt = time.Now().Add(-cacheLazyFullPrimeRetryInterval - time.Second)
-	cache.primeMu.Unlock()
 
 	if _, err := cache.Handles().Cached.List(ListQuery{Status: "open"}); !errors.Is(err, ErrCacheUnavailable) {
-		t.Fatalf("Cached.List after retry interval error = %v, want ErrCacheUnavailable", err)
+		t.Fatalf("Cached.List after backing recovery error = %v, want ErrCacheUnavailable", err)
 	}
 	if got := backing.primeListCalls.Load(); got != 1 {
-		t.Fatalf("prime list calls after retry interval = %d, want no cached-read retry beyond initial Prime", got)
+		t.Fatalf("prime list calls after backing recovery = %d, want no cached-read retry beyond initial Prime", got)
 	}
 }
 
@@ -2305,11 +2302,12 @@ func TestCachingStoreCachedListSupportsActiveTierQueries(t *testing.T) {
 	}
 }
 
-func TestCachingStoreCachedListRejectsIncludeClosedQueries(t *testing.T) {
+func TestCachingStoreCachedListAllowsIncludeClosedQueries(t *testing.T) {
 	t.Parallel()
 
 	backing := NewMemStore()
-	if _, err := backing.Create(Bead{Title: "order run", Labels: []string{"order-run:daily"}, Ephemeral: true}); err != nil {
+	created, err := backing.Create(Bead{Title: "order run", Labels: []string{"order-run:daily"}, Ephemeral: true})
+	if err != nil {
 		t.Fatalf("Create order run: %v", err)
 	}
 	cache := NewCachingStoreForTest(backing, nil)
@@ -2323,8 +2321,11 @@ func TestCachingStoreCachedListRejectsIncludeClosedQueries(t *testing.T) {
 		TierMode:      TierBoth,
 		Limit:         1,
 	})
-	if ok {
-		t.Fatalf("CachedList IncludeClosed ok=true rows=%#v, want ok=false", rows)
+	if !ok {
+		t.Fatal("CachedList IncludeClosed ok=false, want cache-only result")
+	}
+	if len(rows) != 1 || rows[0].ID != created.ID {
+		t.Fatalf("CachedList IncludeClosed rows=%#v, want %s", rows, created.ID)
 	}
 }
 

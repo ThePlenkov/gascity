@@ -522,12 +522,48 @@ func (c *CachingStore) notifyChange(eventType string, b Bead) {
 	if c.onChange == nil {
 		return
 	}
-	payload, err := json.Marshal(b)
+	payload, err := c.notificationPayload(eventType, b)
 	if err != nil {
 		c.recordProblem(fmt.Sprintf("marshal %s notification", eventType), err)
 		return
 	}
 	c.onChange(eventType, b.ID, payload)
+}
+
+func (c *CachingStore) notificationPayload(eventType string, b Bead) ([]byte, error) {
+	payload, err := json.Marshal(b)
+	if err != nil {
+		return nil, err
+	}
+	if eventType == "bead.deleted" {
+		return payload, nil
+	}
+	deps, ok := c.notificationDeps(b.ID)
+	if !ok {
+		return payload, nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		return nil, err
+	}
+	depPayload, err := json.Marshal(deps)
+	if err != nil {
+		return nil, err
+	}
+	fields["dependencies"] = depPayload
+	return json.Marshal(fields)
+}
+
+func (c *CachingStore) notificationDeps(id string) ([]Dep, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if deps, ok := c.deps[id]; ok {
+		return cloneDeps(deps), true
+	}
+	if c.depsComplete {
+		return nil, true
+	}
+	return nil, false
 }
 
 type cacheNotification struct {

@@ -78,7 +78,7 @@ func (c *CachingStore) Update(id string, opts UpdateOpts) error {
 		if current, ok := c.beads[id]; ok {
 			fresh = applyUpdateOptsToBead(current, opts)
 			c.beads[id] = cloneBead(fresh)
-			c.deps[id] = depsFromBeadFields(fresh)
+			c.deps[id] = c.depsForNonDependencyWriteLocked(id, fresh)
 			c.dirty[id] = struct{}{}
 			delete(c.deletedSeq, id)
 			c.updateStatsLocked()
@@ -97,7 +97,7 @@ func (c *CachingStore) Update(id string, opts UpdateOpts) error {
 	c.mu.Lock()
 	c.noteLocalMutationLocked(id)
 	c.beads[id] = cloneBead(fresh)
-	c.deps[id] = depsFromBeadFields(fresh)
+	c.deps[id] = c.depsForNonDependencyWriteLocked(id, fresh)
 	delete(c.dirty, id)
 	delete(c.deletedSeq, id)
 	c.markFreshLocked(time.Now())
@@ -279,7 +279,7 @@ func (c *CachingStore) SetMetadata(id, key, value string) error {
 	c.noteLocalMutationLocked(id)
 	if refreshed {
 		c.beads[id] = cloneBead(fresh)
-		c.deps[id] = depsFromBeadFields(fresh)
+		c.deps[id] = c.depsForNonDependencyWriteLocked(id, fresh)
 		delete(c.dirty, id)
 		delete(c.deletedSeq, id)
 		updated = cloneBead(fresh)
@@ -331,7 +331,7 @@ func (c *CachingStore) SetMetadataBatch(id string, kvs map[string]string) error 
 	c.noteLocalMutationLocked(id)
 	if refreshed {
 		c.beads[id] = cloneBead(fresh)
-		c.deps[id] = depsFromBeadFields(fresh)
+		c.deps[id] = c.depsForNonDependencyWriteLocked(id, fresh)
 		delete(c.dirty, id)
 		delete(c.deletedSeq, id)
 		updated = cloneBead(fresh)
@@ -367,6 +367,13 @@ func (c *CachingStore) refreshBeadAfterWrite(id, op string) (Bead, bool) {
 		return Bead{}, false
 	}
 	return fresh, true
+}
+
+func (c *CachingStore) depsForNonDependencyWriteLocked(id string, fresh Bead) []Dep {
+	if deps, ok := c.deps[id]; ok {
+		return cloneDeps(deps)
+	}
+	return depsFromBeadFields(fresh)
 }
 
 func (c *CachingStore) refreshBeadWithDepsAfterWrite(id, op string) (Bead, []Dep, bool) {
@@ -495,7 +502,7 @@ func (c *CachingStore) refreshTxTouchedBeads(ids []string, closed map[string]str
 			previous, hadPrevious := c.beads[item.id]
 			fresh := cloneBead(item.bead)
 			c.beads[item.id] = fresh
-			c.deps[item.id] = depsFromBeadFields(fresh)
+			c.deps[item.id] = c.depsForNonDependencyWriteLocked(item.id, fresh)
 			delete(c.dirty, item.id)
 			delete(c.deletedSeq, item.id)
 			eventType := "bead.updated"

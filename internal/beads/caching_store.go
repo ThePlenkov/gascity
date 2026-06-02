@@ -136,14 +136,13 @@ type CacheStats struct {
 }
 
 const (
-	maxCacheSyncFailures            = 5
-	cacheReconcilePollInterval      = 5 * time.Second
-	cacheReconcileIntervalSmall     = 30 * time.Second
-	cacheLazyFullPrimeRetryInterval = cacheReconcileIntervalSmall
-	cacheReconcileIntervalMedium    = 60 * time.Second
-	cacheReconcileIntervalLarge     = 120 * time.Second
-	cacheProblemLogWindow           = time.Minute
-	cacheReconcileFailureBackoff    = time.Minute
+	maxCacheSyncFailures         = 5
+	cacheReconcilePollInterval   = 5 * time.Second
+	cacheReconcileIntervalSmall  = 30 * time.Second
+	cacheReconcileIntervalMedium = 60 * time.Second
+	cacheReconcileIntervalLarge  = 120 * time.Second
+	cacheProblemLogWindow        = time.Minute
+	cacheReconcileFailureBackoff = time.Minute
 	// cacheReconcileSuccessLogWindow rate-limits the per-reconcile success
 	// log line. Reuses the one-minute pattern from cacheProblemLogWindow so
 	// the reconciler's footprint in the operator-visible log stays bounded
@@ -591,76 +590,12 @@ func (c *CachingStore) waitForFullPrimeDone(ctx context.Context, cycle *fullPrim
 	return cycle.err
 }
 
-func (c *CachingStore) ensureFullPrime(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if c.cacheFullyPrimed() {
-		return nil
-	}
-	if err := c.beginCacheWorker(); err != nil {
-		return errors.Join(ErrCacheUnavailable, err)
-	}
-	defer c.endCacheWorker()
-	if err := c.cacheContextErr(ctx); err != nil {
-		return errors.Join(ErrCacheUnavailable, err)
-	}
-	cycle, owner, suppressed := c.beginLazyFullPrime(time.Now())
-	if suppressed {
-		return ErrCacheUnavailable
-	}
-	var err error
-	if owner {
-		err = c.prime(ctx)
-		c.finishFullPrime(cycle, err)
-	} else {
-		err = c.waitForFullPrimeDone(ctx, cycle)
-	}
-	if err != nil {
-		return errors.Join(ErrCacheUnavailable, fmt.Errorf("prime cache: %w", err))
-	}
-	if !c.cacheFullyPrimed() {
-		return ErrCacheUnavailable
-	}
-	return nil
-}
-
-func (c *CachingStore) beginLazyFullPrime(now time.Time) (*fullPrimeCycle, bool, bool) {
-	c.mu.RLock()
-	state := c.state
-	partial := c.primePartialErr != nil
-	c.mu.RUnlock()
-
-	if state == cacheDegraded {
-		return nil, false, true
-	}
-
-	c.primeMu.Lock()
-	defer c.primeMu.Unlock()
-	if c.primeRunning {
-		return c.primeCycle, false, state != cacheUninitialized
-	}
-	if c.lastFullPrimeStartedAt.IsZero() {
-		return c.startFullPrimeLocked(), true, false
-	}
-	if now.Sub(c.lastFullPrimeStartedAt) < cacheLazyFullPrimeRetryInterval && (state != cacheUninitialized || partial) {
-		return nil, false, true
-	}
-	return c.startFullPrimeLocked(), true, false
-}
-
 func (c *CachingStore) startFullPrimeLocked() *fullPrimeCycle {
 	cycle := &fullPrimeCycle{done: make(chan struct{})}
 	c.primeRunning = true
 	c.primeCycle = cycle
 	c.lastFullPrimeStartedAt = time.Now()
 	return cycle
-}
-
-func (c *CachingStore) cacheFullyPrimed() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.state == cacheLive && c.primePartialErr == nil
 }
 
 func (c *CachingStore) beginCacheWorker() error {

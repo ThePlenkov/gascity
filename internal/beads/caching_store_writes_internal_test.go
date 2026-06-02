@@ -174,6 +174,53 @@ func TestCachingStoreSetMetadataBatchNotifiesBeadUpdated(t *testing.T) {
 	if updated.Metadata["review"] != "fixed" {
 		t.Fatalf("notification metadata = %#v, want review=fixed", updated.Metadata)
 	}
+	if _, fields, err := decodeCacheEvent(notifications[0].payload); err != nil {
+		t.Fatalf("decode notification fields: %v", err)
+	} else if _, ok := fields["dependencies"]; !ok {
+		t.Fatalf("notification payload = %s, want explicit dependencies snapshot", string(notifications[0].payload))
+	}
+}
+
+func TestCachingStoreLocalUpdateEventEchoPreservesReadyDependencyCoverage(t *testing.T) {
+	t.Parallel()
+
+	backing := NewMemStore()
+	blocker, err := backing.Create(Bead{Title: "blocker"})
+	if err != nil {
+		t.Fatalf("Create blocker: %v", err)
+	}
+	target, err := backing.Create(Bead{Title: "target"})
+	if err != nil {
+		t.Fatalf("Create target: %v", err)
+	}
+	if err := backing.DepAdd(target.ID, blocker.ID, "blocks"); err != nil {
+		t.Fatalf("DepAdd backing: %v", err)
+	}
+	var notifications []cacheWriteNotification
+	cache := NewCachingStoreForTest(backing, func(eventType, beadID string, payload json.RawMessage) {
+		notifications = append(notifications, cacheWriteNotification{eventType: eventType, beadID: beadID, payload: payload})
+	})
+	if err := cache.Prime(context.Background()); err != nil {
+		t.Fatalf("Prime: %v", err)
+	}
+
+	if err := cache.SetMetadataBatch(target.ID, map[string]string{"review": "fixed"}); err != nil {
+		t.Fatalf("SetMetadataBatch: %v", err)
+	}
+	if len(notifications) != 1 {
+		t.Fatalf("notifications = %d, want 1: %#v", len(notifications), notifications)
+	}
+	cache.ApplyEvent(notifications[0].eventType, notifications[0].payload)
+
+	ready, ok := cache.CachedReady()
+	if !ok {
+		t.Fatal("CachedReady reported cache unavailable after local update event echo")
+	}
+	for _, bead := range ready {
+		if bead.ID == target.ID {
+			t.Fatalf("CachedReady included blocked target %s after local update event echo; ready=%v", target.ID, ready)
+		}
+	}
 }
 
 func TestCachingStoreDependencyWritesNotifyBeadUpdatedWithDeps(t *testing.T) {
@@ -206,19 +253,25 @@ func TestCachingStoreDependencyWritesNotifyBeadUpdatedWithDeps(t *testing.T) {
 	if len(notifications) != 2 {
 		t.Fatalf("notifications = %d, want 2: %#v", len(notifications), notifications)
 	}
-	added, _, err := decodeCacheEvent(notifications[0].payload)
+	added, addedFields, err := decodeCacheEvent(notifications[0].payload)
 	if err != nil {
 		t.Fatalf("decode add notification: %v", err)
 	}
 	if notifications[0].eventType != "bead.updated" || len(added.Dependencies) != 1 || added.Dependencies[0].DependsOnID != blocker.ID {
 		t.Fatalf("add notification = %#v bead=%+v, want dependency snapshot", notifications[0], added)
 	}
-	removed, _, err := decodeCacheEvent(notifications[1].payload)
+	if _, ok := addedFields["dependencies"]; !ok {
+		t.Fatalf("add notification payload = %s, want explicit dependencies snapshot", string(notifications[0].payload))
+	}
+	removed, removedFields, err := decodeCacheEvent(notifications[1].payload)
 	if err != nil {
 		t.Fatalf("decode remove notification: %v", err)
 	}
 	if notifications[1].eventType != "bead.updated" || len(removed.Dependencies) != 0 {
 		t.Fatalf("remove notification = %#v bead=%+v, want empty dependency snapshot", notifications[1], removed)
+	}
+	if _, ok := removedFields["dependencies"]; !ok {
+		t.Fatalf("remove notification payload = %s, want explicit empty dependencies snapshot", string(notifications[1].payload))
 	}
 }
 
