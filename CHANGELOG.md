@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`time.Local`/`$TZ`) or the `GC_OPERATOR_TZ` override; disable with
   `GC_INJECT_CLOCK=0`. Folded into the existing nudge inject, so it adds zero
   extra hook subprocesses per turn. See #3036.
+- **O(1) open-work gate for order-run wisp trees** (`HasOpenOrderRun`): replaces
+  the O(tree) BFS in `storeHasOpenDescendants` with a flat, indexed
+  `wisp_labels JOIN wisps GROUP BY label` EXISTS query (sub-linear index seek,
+  short-circuit at first open row). All non-root molecule descendants are now
+  stamped with `order-run:NAME` at materialisation (`dispatchWisp`) and at
+  convoy-grow (`processFanout`). `DoltliteReadStore` reads both the issues tier
+  and the wisp tier through `mergeOrderRunRows`. Stores that implement
+  `OrderRunChecker` take the fast path; all others fall back to the existing BFS.
+  Crispin regression test (`TestCrispinRegressionWispLabelsExistsIsO1`) asserts
+  500-node wisp trees complete in < 500ms (vp-umj / vc-6qh1 #1').
+
 - The supervisor now merges a machine-local secrets file
   (`${GC_HOME}/secrets.env`, dotenv syntax) into the launchd plist / systemd
   unit environment on every service-file regeneration. This fixes provider
