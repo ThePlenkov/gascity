@@ -2,11 +2,11 @@
 
 **Verdict:** block
 
-> **Lane:** Zero hardcoded roles in Go and assets, the symbolic maintenance-worker binding, SDK self-sufficiency, ZFC (Zero Framework Cognition) judgment containment.
->
-> Reviewed against the Attempt 6 design document (`.gc/design-reviews/ga-1ekw9l/attempt-6/design-before.md`, 657 lines, `updated_at: 2026-06-09T07:28:00Z`) — specifically §"Role Neutrality And Configurable Bindings" (lines 328–369), §"Required System Pack Loader" (lines 196–252), §"Bootstrap Fixture Isolation" (lines 370–396), and §"Data And State" (lines 426–486).
->
-> This independent review is produced using the DeepSeek V4 Flash style, focusing specifically on cross-document consistency, missing edge cases, and assumptions other reviewers may accept too quickly.
+Lane: Zero hardcoded roles in Go and assets, the symbolic maintenance-worker binding, SDK self-sufficiency, ZFC (Zero Framework Cognition) judgment containment.
+
+Reviewed against the Attempt 6 design document (`.gc/design-reviews/ga-1ekw9l/attempt-6/design-before.md`, 657 lines, `updated_at: 2026-06-09T07:28:00Z`) — specifically §"Role Neutrality And Configurable Bindings" (lines 328–369), §"Required System Pack Loader" (lines 196–252), §"Bootstrap Fixture Isolation" (lines 370–396), and §"Data And State" (lines 426–486).
+
+This independent review is produced using the DeepSeek V4 Flash style, focusing specifically on cross-document consistency, missing edge cases, and assumptions other reviewers may accept too quickly.
 
 ---
 
@@ -34,7 +34,7 @@ Specifically, the plan fails to address the prefix-only `binding_prefix` mechani
 
 **Answer: Yes, but with unresolved ZFC violations.**
 - If the `maintenance_worker` is renamed (e.g., from `dog` to `reconciler`), the framework resolves the target at runtime via `gc.run_target_binding` / `target_binding`, which works correctly.
-- However, if the `maintenance_worker` is omitted entirely from the config, the plan's behavior is unstated. Line 354 states: `"Missing optional bindings skip user-agent work with a typed diagnostic."` But under **ZFC**, the Go code must not make a judgment call about omitting required system-level transport workers; the config parser must fail-closed during pre-flight configuration validation or raise a descriptive pre-flight error rather than letting the dispatcher make an ad-hoc runtime judgment.
+- However, if the `maintenance_worker` is omitted entirely from the config, the plan's behavior is unstated. Line 354 states: `"Missing optional bindings skip user-agent work with a typed diagnostic."` Under **ZFC**, the Go code must not make a judgment call about omitting required system-level transport workers; the config parser must fail-closed during pre-flight configuration validation or raise a descriptive pre-flight error rather than letting the dispatcher make an ad-hoc runtime judgment.
 - Furthermore, the plan distinguishes between "missing optional bindings" and "missing required provider-pack escalation bindings" (lines 354-355), but never specifies where this optional-vs-required designation is declared. If Go classifies a binding as required or optional by its name or purpose, that is the judgment call ZFC forbids.
 
 ### Q3: Are role-name allowlists narrow, time-bounded, and failing when compatibility fixtures leak into live behavior?
