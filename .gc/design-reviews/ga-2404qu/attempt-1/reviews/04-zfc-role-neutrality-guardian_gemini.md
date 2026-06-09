@@ -1,20 +1,25 @@
-# Ingrid Kovac — ZFC & Role-Neutrality Guardian (Iteration 14 / Attempt 14, Independent DeepSeek V4 Flash Style Review)
+# Ingrid Kovac — ZFC & Role-Neutrality Guardian (Iteration 16 / Attempt 16, Independent DeepSeek V4 Flash Style Review)
 
 **Verdict:** BLOCK
 
 **Scope:** Zero hardcoded roles, Core role neutrality, `dog` exception containment, SDK self-sufficiency, Go-source migration guard coverage, cross-document consistency, and architectural coherence.
 
-This independent review evaluates the Iteration 14 snapshot of the Core and Gastown Pack Split design (`plans/core-gastown-pack-migration/implementation-plan.md` / `attempt-14/design-before.md`) against `requirements.md` and the live codebase at the `rig_root` (`/data/projects/gascity`).
+This independent review evaluates the Iteration 16 snapshot of the Core and Gastown Pack Split design (`plans/core-gastown-pack-migration/implementation-plan.md` / `attempt-16/design-before.md`) against `requirements.md` and the live codebase at the `rig_root` (`/data/projects/gascity`).
 
 ---
 
 ## Executive Summary
 
-As Ingrid Kovac, the **ZFC and Role-Neutrality Guardian**, I am issuing a strict **Verdict: BLOCK** for Iteration 14 / Attempt 14 of the Core and Gastown Pack Split design.
+As Ingrid Kovac, the **ZFC and Role-Neutrality Guardian**, I am issuing a strict **Verdict: BLOCK** for Iteration 16 / Attempt 16 of the Core and Gastown Pack Split design.
 
-Attempt 14 introduces highly valuable improvements, notably relaxing required provider pack (`bd` and `dolt`) byte immutability to permit explicit role-cleaning rewrites, and introducing tighter doctor mutation coordinators with OS-level concurrency locking. However, **the core blockers from previous reviews have not been integrated into the design text**. The design continues to carry forward systemic loopholes—specifically a blindspot in the role-token scanner's identifier-matching logic, un-enumerated hardcoded Go role surfaces, a lack of per-asset Core utility classification, and an active wire-level compatibility mismatch with the dashboard.
+While Attempt 16 makes progress by expanding the scanner's direct search roots to include OpenAPI schemas and dashboard TypeScript files (§1914–1915), resolving previous blindspots around wire-level de-roling, it **fails to address the structural loopholes** that threaten the Zero Framework Cognition (ZFC) invariant. Specifically:
 
-We cannot permit this design to proceed to implementation while these active risks threaten the Zero Framework Cognition (ZFC) invariant.
+1. **The Scanner Sub-Identifier Blindspot remains unaddressed.** There is still no explicit requirement for camelCase or PascalCase token splitting. This guarantees that Go-source APIs like `DogTheme()` or `MayorTheme()` will bypass a standard token-level check.
+2. **The Dashboard `crew` Wire Vocabulary Contradiction persists.** The design claims both that the scanner covers API/dashboard projections of `agent_kind` and `crew` (§1929) and that "This migration should not require dashboard changes" (§3075). This is a physical and logical contradiction.
+3. **Core Asset Classification is still missing.** There is no per-asset division classifying moved/retired Maintenance assets into `controller_owned` or `optional_core_maintenance_worker` categories. This creates a high risk of implementing required SDK logic that depends on an optional worker.
+4. **Lack of `dog` Metadata Containment.** The scanner does not enforce containment rules preventing `dog` literals from leaking into Core-owned routing, pool, and dispatch metadata fields.
+
+We cannot permit this design to proceed to implementation while these active risks threaten the integrity of Gas City.
 
 ---
 
@@ -41,11 +46,12 @@ The symbolic binding schema (`[gc.bindings.maintenance_worker]`) supports rename
 
 ---
 
-## Top Strengths of Attempt 14
+## Top Strengths of Attempt 16
 
+* **Expanded Scanner Scope:** Incorporating `dashboard/API/OpenAPI/generated TypeScript and generated schema artifacts` (§1914–1915) into the scanner's direct inventory roots is a major improvement. This prevents wire-level and frontend role-leakage from bypassing the de-roling gates.
 * **Symbolic Binding Model & Omitted-Worker Self-Sufficiency:** The `[gc.bindings.maintenance_worker]` symbolic binding model (lines 1796–1845) is mathematically sound. It completely decouples Go execution logic from concrete pool names and ensures Core can safely run controller-owned infrastructure without a worker.
-* **Provider Pack Conformance (Attempt 14 Improvement):** Attempt 14 correctly resolves the required provider pack de-roling contradiction. By amending the required-pack continuity clause (lines 2665–2670) to authorize role-cleaning and target-binding byte rewrites on `bd` and `dolt` assets, the design ensures required host packs can run in Core-only environments without leakage.
-* **Preflight Mutation Coordinator Security (Attempt 14 Improvement):** The new `doctor.MutationCoordinator` (lines 1936–1960) with OS-level concurrency locking and preflight validation prevents recovery tools from causing deadlocks, safely managing transitions for legacy local directories.
+* **Provider Pack Conformance:** Attempt 16 correctly resolves the required provider pack de-roling contradiction. By amending the required-pack continuity clause to authorize role-cleaning and target-binding byte rewrites on `bd` and `dolt` assets, the design ensures required host packs can run in Core-only environments without leakage.
+* **Preflight Mutation Coordinator Security:** The `doctor.MutationCoordinator` with OS-level concurrency locking and preflight validation prevents recovery tools from causing deadlocks, safely managing transitions for legacy local directories.
 
 ---
 
@@ -56,26 +62,20 @@ The symbolic binding schema (`[gc.bindings.maintenance_worker]`) supports rename
 * **The Gap:** A whole-token word match on role names (e.g. `\b(mayor|deacon|crew)\b`) will **silently fail to catch** role-keyed Go APIs such as `MayorTheme()`, `DeaconTheme()`, `ConfigureGasTownSession`, `isCrewDir`, or `defaultWarmupMailTo`. 
 * **Required Change:** The scanner specification must explicitly require splitting camelCase/PascalCase sub-identifiers (or utilizing substring token scans against a strict allowlist) to enforce absolute role neutrality on Go APIs. Negative test fixtures must include camelCase role-bearing Go names to ensure this check fails CI.
 
-### 2. [Blocker] Un-enumerated Go Role Violations & Self-Imposed Deadlock
-* **The Risk:** The design gates source tree deletion (slice 7) and public Gastown pinning on resolving "Hardcoded role-theme/tmux APIs" (§2632). However, it never enumerates the pre-existing Go role violations in the tree.
-* **The Gap:** The actual violations in the repository are:
-  * `internal/runtime/tmux/theme.go:33,39,43`: `MayorTheme()`, `DeaconTheme()`, `DogTheme()` returning hardcoded role names.
-  * `internal/runtime/tmux/tmux.go:80,2823`: `roleEmoji`/`roleIcons` maps containing role display keys (`mayor`, `deacon`, `witness`, `refinery`, `crew`, `polecat`).
-  * `cmd/gc/cmd_start_warmup.go:33`: `defaultWarmupMailTo = "mayor"` hardcoded warmup fallback.
-  * `internal/config/config.go:3671,3700`: `DefaultCity` and `WizardCity` hardcoding `{Name: "mayor", PromptTemplate: "prompts/mayor.md"}`.
-  * `internal/sling/sling.go:888,894`: `SlingFormulaUsesBaseBranch` and `SlingFormulaUsesTargetBranch` heuristics branching on `mol-polecat-*` and `mol-refinery-patrol` formula names.
-  * `cmd/gc/cmd_prompt.go:631-632`: CLI fallback defaulting to `prompts/mayor.md`.
-* **Required Change:** Enumerate these Go violations explicitly in the design text. State their exact disposition (e.g., config-driven theming, dynamic lookup maps, registry-driven scaffolding) and the slice in which they are neutralized. This prevents developers from taking the path of least resistance by dumping them into a broad allowlist.
-
-### 3. [Blocker] Core Asset Classification Missing (Codex Convergence)
-* **The Risk:** The design states that omitting the Core maintenance worker disables "worker-bound Core maintenance orders and formulas" while ensuring "controller-owned SDK operations" still run (§1812–1818).
-* **The Gap:** The design lists generic infrastructure orders and scripts such as gate sweep, blocker-close cascade, stale cleanup/reaper, spawn storm detection, and binary doctor checks (§2649). However, it never classifies which assets are controller-owned vs. worker-bound. Without a per-asset classification table, an implementation can easily break controller self-sufficiency by assigning a required SDK operation to the optional `core.maintenance_worker` binding.
-* **Required Change:** Extend the behavior manifest or role-surface table with a mandatory per-asset classification: `controller_owned`, `optional_core_maintenance_worker`, `public_gastown`, or `retired`. Mandate negative tests showing that when `maintenance_worker = ""` is configured, all `controller_owned` operations execute successfully.
-
-### 4. [Blocker] Dashboard `crew` Wire Vocabulary Contradiction (Claude/Codex Convergence)
-* **The Risk:** To pass Go neutrality, wire-level fields like `crew` or `agent_kind` must be de-roled (§1929). Yet, the design asserts "this migration should not require dashboard changes" (§2720).
+### 2. [Blocker] Dashboard `crew` Wire Vocabulary Contradiction
+* **The Risk:** To pass Go neutrality, wire-level fields like `crew` or `agent_kind` must be de-roled (§1929). Yet, the design asserts "this migration should not require dashboard changes" (§3075).
 * **The Gap:** The live dashboard filters on `session.agent_kind === "crew"` (`cmd/gc/dashboard/web/src/panels/crew.ts:45`) and reads the OpenAPI schema for `agent_kind` (`docs/schema/openapi.json`). Changing the Go wire vocab without modifying the dashboard will immediately break API compatibility.
 * **Required Change:** Resolve this contradiction. Either authorize dashboard API updates in the rollout plan (including running `make dashboard-check`), or formally allowlist the specific Go wire/JSON struct tags required for backward compatibility with the current dashboard version.
+
+### 3. [Blocker] Core Asset Classification Missing (Codex/Claude Convergence)
+* **The Risk:** The design states that omitting the Core maintenance worker disables "worker-bound Core maintenance orders and formulas" while ensuring "controller-owned SDK operations" still run (§1812–1818).
+* **The Gap:** The design lists generic infrastructure orders and scripts such as gate sweep, blocker-close cascade, stale cleanup/reaper, spawn storm detection, and binary doctor checks (§2500–2503). However, it never classifies which assets are controller-owned vs. worker-bound. Without a per-asset classification table, an implementation can easily break controller self-sufficiency by assigning a required SDK operation to the optional `core.maintenance_worker` binding.
+* **Required Change:** Extend the behavior manifest or role-surface table with a mandatory per-asset classification: `controller_owned`, `optional_core_maintenance_worker`, `public_gastown`, or `retired`. Mandate negative tests showing that when `maintenance_worker = ""` is configured, all `controller_owned` operations execute successfully.
+
+### 4. [Blocker] Lack of `dog` Metadata Containment
+* **The Risk:** The default maintenance agent key `dog` must be treated purely as configuration, not as a hardcoded fallback or special-case.
+* **The Gap:** The scanner is not instructed to reject `dog` literals in Core-owned routing, pool, and dispatch metadata fields. Without this constraint, developers can bypass symbolic bindings by hardcoding the literal `dog` into dispatch rules.
+* **Required Change:** Mandate that the scanner rejects the token `dog` in all Core-owned routing, pool, and dispatch metadata fields, requiring symbolic bindings (like `core.maintenance_worker`) instead.
 
 ---
 
@@ -84,16 +84,14 @@ The symbolic binding schema (`[gc.bindings.maintenance_worker]`) supports rename
 To lift this block, the design document must be updated to resolve these issues with the following concrete, actionable gates:
 
 1. **Codify Go Scanner Token Rules:** Specify that the Go role-name scanner must split camelCase/PascalCase sub-identifiers. Mandate a negative fixture per role token in camelCase form that must fail CI.
-2. **Pre-enumerate Go Role Surfaces:** Add explicit, named rows in the `Cross-Pack Ownership Decisions` or role-surface table for `MayorTheme`, `DeaconTheme`, `roleEmoji`, `defaultWarmupMailTo`, `DefaultCity` / `WizardCity` scaffolding, and `internal/sling` heuristics, documenting their final disposition.
+2. **Resolve Dashboard Wire Alignment:** Explicitly authorize the dashboard API and generated type updates in the rollout plan under a validated gate, or formally allowlist the exact JSON struct tags required for backward compatibility.
 3. **Classify Core Assets:** Provide an exhaustive, per-asset table classifying moved/retired Maintenance assets into `controller_owned` vs. `optional_core_maintenance_worker`. Require omitted-worker negative tests for all `controller_owned` assets.
-4. **Harmonize Dashboard Wire Types:** Resolve the `crew` wire-type conflict by either detailing the required dashboard compatibility allowlist or authorizing the exact dashboard/OpenAPI updates under a validated gate.
-5. **Contain `dog` Literals:** Mandate that the scanner rejects the token `dog` in all Core-owned routing, pool, and dispatch metadata fields (requiring symbolic bindings instead).
+4. **Contain `dog` Literals:** Mandate that the scanner rejects the token `dog` in all Core-owned routing, pool, and dispatch metadata fields (requiring symbolic bindings instead).
 
 ---
 
 ## Questions
 
 * **Sub-identifier Tokenization:** Will the Go scanner split sub-identifiers (camelCase/PascalCase) and assert on negative camelCase role fixtures?
-* **Go Role Dispositions:** What are the exact structural replacement mechanisms for `roleEmoji`, `DefaultCity` / `WizardCity` scaffolding, and `internal/sling` branch heuristics?
-* **Core Classification:** Which of the generic maintenance scripts listed in line 2146 are required SDK controller-owned infrastructure versus optional worker-bound tasks?
 * **Dashboard Wire Alignment:** Will the dashboard API be updated to support the new neutral grouping metadata, or will we carry a narrow, expiring wire compatibility row for `crew`?
+* **Core Classification:** Which of the generic maintenance scripts listed in lines 2500–2503 are required SDK controller-owned infrastructure versus optional worker-bound tasks?
