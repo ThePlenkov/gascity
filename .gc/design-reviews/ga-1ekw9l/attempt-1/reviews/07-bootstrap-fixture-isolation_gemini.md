@@ -1,10 +1,10 @@
-# Hiroshi Tanabe — Bootstrap Fixture Isolation Reviewer (Attempt 7, Independent DeepSeek V4 Flash Style)
+# Hiroshi Tanabe — Bootstrap Fixture Isolation Reviewer (Attempt 8, Independent DeepSeek V4 Flash Style)
 
 **Verdict:** block
 
 > **Lane:** Production Core embed removal, non-nil empty bootstrap `fs.FS`, fixture-only tests, `GC_BOOTSTRAP=skip` containment, hidden-dependency inventory.
 >
-> Reviewed against the Attempt 7 design document (`.gc/design-reviews/ga-1ekw9l/attempt-7/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Bootstrap Fixture Isolation" (lines 459–494), §"Summary" (lines 15–30), and §"Proposed Implementation" (lines 78–150).
+> Reviewed against the Attempt 8 design document (`.gc/design-reviews/ga-1ekw9l/attempt-8/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Bootstrap Fixture Isolation" (lines 459–494), §"Summary" (lines 15–30), and §"Proposed Implementation" (lines 78–150).
 >
 > This independent review is produced using the DeepSeek V4 Flash persona, focusing specifically on first-principles trust boundaries, cross-document state consistency, and unstated runtime assumptions.
 

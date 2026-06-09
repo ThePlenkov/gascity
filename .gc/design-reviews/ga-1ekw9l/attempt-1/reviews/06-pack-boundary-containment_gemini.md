@@ -1,10 +1,10 @@
-# Owen Gallagher — DeepSeek V4 Flash (Pack Boundary Containment Reviewer, Attempt 7, Independent Review)
+# Owen Gallagher — DeepSeek V4 Flash (Pack Boundary Containment Reviewer, Attempt 8, Independent Review)
 
 **Verdict:** block
 
 > **Lane:** Core versus Gastown ownership split, retired Maintenance source containment, active discovery classifier, no duplicate active behavior.
 >
-> Reviewed against the Attempt 7 design document (`.gc/design-reviews/ga-1ekw9l/attempt-7/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Pack Registry, Cache, And Retired Source Authority" (lines 313–357), §"Doctor And Runtime-State Mutation Safety" (lines 358–408), §"Role Neutrality And Configurable Bindings" (lines 409–458), and §"Rollout And Recovery" (lines 687–825).
+> Reviewed against the Attempt 8 design document (`.gc/design-reviews/ga-1ekw9l/attempt-8/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Pack Registry, Cache, And Retired Source Authority" (lines 313–357), §"Doctor And Runtime-State Mutation Safety" (lines 358–408), §"Role Neutrality And Configurable Bindings" (lines 409–458), and §"Rollout And Recovery" (lines 687–825).
 >
 > This independent review is produced using the DeepSeek V4 Flash persona, focusing specifically on first-principles trust boundaries, cross-document state consistency, and unstated runtime assumptions.
 
@@ -38,11 +38,11 @@ Conforms to `gc.mayor.implementation-plan.v1`. Front matter carries the required
 - **The Blocker:** Under this condition, the `zero-duplicate-active` gate (lines 347–351) will immediately trigger on every loader call, crashing the city and preventing any user from completing the compatibility window.
 - **Required Change:** State explicitly that the compatibility-pin public pack *excludes* assets that duplicate still-required in-tree Maintenance (with only the activation pin absorbing them), or specify that the `zero-duplicate-active` gate runs in "report-only/warn-only" mode during the compatibility window (Slices 2 through 4c) and only hard-blocks execution starting with the activation candidate in Slice 5a.
 
-### 3. [Blocker] Behavior-ID Schema Ambiguity
+### 3. [Blocker] Behavior-ID Schema Ambiguity and Granularity Clash
 - **The Risk:** The zero-duplicate-active gate blocks loading if "the same behavior id is active from more than one source" (lines 349–350).
-- **The Reality:** The plan refers to "behavior ids" as a concrete primitive but never defines how they are generated or structured for prompts, prompt fragments, scripts, hook overlays, formulas, or orders. Simple filename or path matching is insufficient due to moved formulas, split prompts, renamed orders, or subpath aliases.
-- **The Blocker:** Without a concrete, stable identity scheme, the loader cannot programmatically detect duplicates or splits, leaving Slices 4a and 5a unimplementable.
-- **Required Change:** Define the exact behavior-identity scheme in the plan: for each behavior type (e.g., formula, order, prompt, script, hook), specify the canonical identifier (such as the declared TOML name, trigger slug, or relative path relative to the pack root) used by the zero-duplicate-active gate to compare across bundled and public sources.
+- **The Reality:** The plan refers to "behavior ids" as a concrete primitive but never defines how they are generated or structured for prompts, prompt fragments, scripts, hook overlays, formulas, or orders. Simple filename or path matching is insufficient due to moved formulas, split prompts, renamed orders, or subpath aliases. Furthermore, as noted by other reviewers, if a single asset (like `mol-shutdown-dance.toml` at lines 449–450) is split along trigger lines into Core-owned and Gastown-owned behaviors, an asset-level identity will fail to detect trigger-level duplication, leading to either silent duplicate execution or premature load failures on valid splits.
+- **The Blocker:** Without a concrete, stable trigger-level identity scheme, the loader cannot programmatically detect duplicates or splits, leaving Slices 4a and 5a unimplementable.
+- **Required Change:** Define the exact behavior-identity scheme in the plan: for each behavior type (e.g., formula, order, prompt, script, hook), specify the canonical trigger-level identifier (such as the declared TOML name, trigger slug, or relative path relative to the pack root) used by the zero-duplicate-active gate to compare across bundled and public sources.
 
 ### 4. [Major] Rollback Version-Skew and Silent Shadowing (Old Binary + Activation Pin)
 - **The Risk:** Once a city adopts the public activation pin, in-tree Maintenance is removed from `requiredBuiltinPackNames` (Slice 5b, lines 772–778). If an operator rolls back the city to an old binary, the old binary still force-includes Maintenance via its embedded `requiredBuiltinPackNames`.
