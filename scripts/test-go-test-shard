@@ -100,7 +100,11 @@ if [[ -n "${GO_TEST_COVERPROFILE:-}" ]]; then
   go_test_args+=(-coverpkg=./... -coverprofile "$GO_TEST_COVERPROFILE")
 fi
 
-list_output="$(run_go_test "${go_test_args[@]}" "$test_pkg" -list '^Test' 2>&1)"
+if ! list_output="$(run_go_test "${go_test_args[@]}" "$test_pkg" -list '^Test' 2>&1)"; then
+  echo "go test -list failed for ${test_pkg}; output:" >&2
+  printf '%s\n' "$list_output" >&2
+  exit 1
+fi
 tests=()
 while IFS= read -r line; do
   [[ "$line" == Test* ]] || continue
