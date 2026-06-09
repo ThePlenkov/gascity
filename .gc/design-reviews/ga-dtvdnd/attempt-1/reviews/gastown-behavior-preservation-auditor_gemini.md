@@ -1,69 +1,71 @@
-# Oleg Marchetti — DeepSeek V4 Flash Perspective Independent Review (Iteration 1 / Attempt 1)
+# Oleg Marchetti — DeepSeek V4 Flash Perspective Independent Review (Iteration 2 / Attempt 1)
 
 **Verdict:** approve-with-risks
 
 **Scope:** Behavior preservation lane only — Gastown behavior inventory, before-after mapping, requester/detector/notification continuity, and preventing silent capability loss.
 
-This review evaluates the Iteration 1 / Attempt 1 draft of the Core/Gastown Split design document against the approved requirements and current codebase behaviors. The design presents a highly mature, rigorous strategy for de-roling the SDK while preserving Gastown orchestration. In particular, the introduction of a machine-readable **Source-Derived Behavior Manifest (§88–120)** and a **Strict Behavior Witness Floor (§1393–1415)** provides an exceptionally strong defense against silent regressions.
-
-However, from the strict, empirical perspective of **Behavior Preservation Auditing**, several critical risks, gaps, and edge cases must be addressed before the design is finalized.
-
 ---
 
 ## Executive Summary
 
-The design outlines a systematic, staged rollout plan (§2723–2809) that decouples risky changes, enforces intermediate test states, and establishes a source-derived behavior manifest. This manifest ensures that every generalized asset's old trigger conditions and notification targets are exhaustively cataloged and validated against the new public Gastown pack via `test/packcompat`.
+This review evaluates the Iteration 2 / Attempt 1 draft of the Core/Gastown Split implementation plan against the approved requirements, prior audit feedback, and current codebase behaviors. The updated design represents a monumental leap in rigor, incorporating a machine-readable **Source-Derived Behavior Manifest (AC6/AC7)**, a robust **System Pack Loader (`internal/systempacks`)**, and a **Strict Behavior Witness Floor** to defend against silent regressions.
 
-To ensure 100% behavioral equivalence and prevent silent operational failures, we identify three critical areas requiring refinement:
-1. **The `dog` Worker Omission and Rename Fallback Gap:** Go-side SDK functions must survive when the Core maintenance worker `dog` is renamed or omitted, yet active provider formulas (like `mol-dog-backup` under Dolt) assume a valid maintenance worker is configured.
-2. **Silent Mail Failures and Empty Recipient Misroutes in Shell Scripts:** Generalizing scripts (e.g., `reaper.sh` and `jsonl-export.sh`) to accept recipient parameters dynamically introduces a risk of invalid CLI executions (such as `gc mail send /`) or silent failures when no recipient is configured.
-3. **Behavior Witness triggers on Simulated Failures:** The current test plan verifies happy path equivalence, but does not explicitly mandate verifying that error/warning/escalation paths trigger correctly.
-
----
-
-## Top Strengths
-
-- **Behavior Evidence Witness Floor (§1393–1400):** Mandating that any asset with historical execution-level test coverage cannot be downgraded to static path-presence or count-only validation is an outstanding quality gate.
-- **Source-Derived, Machine-Readable Manifest (§88–120):** Transitioning away from hand-curated Excel sheets or markdown tables to a compiler-verifiable `behavior-manifest.generated.yaml` prevents human oversight from letting role leakage slip through.
-- **Strict Staged Rollout Slices (§2723–2809):** Dividing the migration into seven highly specified slices (from candidate public Gastown branch to final source deletion) with explicit entry/exit gates minimizes rollout risk.
-- **Retired-Source Containment API (§1085–1100):** Creating a single centralized classifier API to handle legacy paths prevents duplicate-active-definition crashes across intermediate and rollback states.
-
----
-
-## Critical Risks & Gaps
-
-### 1. Fallback Behavior for Omitted/Renamed Maintenance Workers
-- **The Risk:** The design specifies that `dog` is merely configurable pack data and that "Go must continue to work when the Core maintenance worker is renamed or omitted" (§738–741). However, provider-pack formulas (such as `dolt`'s `mol-dog-backup` and related doctor checks) are highly dependent on having a configured worker to execute tasks.
-- **The Gap:** If an operator defines a Core-only city and explicitly omits `core.maintenance_worker`, the design does not specify whether the SDK falls back to a safe, non-agent controller execution mode or crashes during formula compilation.
-- **Recommendation:** Mandate that if `core.maintenance_worker` is omitted, the SDK falls back gracefully to standard controller-driven execution where applicable, or fails compiling the specific dependent formulas with a clear, localized config error rather than an opaque TOML parsing panic.
-
-### 2. Guarding Against Malformed/Empty Dynamic Notification Recipients in Scripts
-- **The Risk:** Generalized scripts like `reaper.sh` and `jsonl-export.sh` will consume recipients from formula or order metadata dynamically (§1377–1381).
-- **The Gap:** The design states that "required recipient fields fail preflight if empty or `/`". However, for optional notification recipients, an empty or unconfigured value can lead to malformed CLI calls (e.g., executing `gc mail send ""` or `gc mail send /`) inside the shell scripts, causing unhandled script crashes.
-- **Recommendation:** Mandate that all generalized shell scripts perform preflight validation of their recipient parameters. If the recipient variable is empty or resolves to `/`, the script must log a warning to `stderr` and skip mail execution (exiting with code `0`) rather than executing a malformed command.
-
-### 3. Verification of Warning and Escalation Pathways
-- **The Risk:** The behavior manifest and `test/packcompat` ensure that Gastown workflows trigger under standard conditions (§1412–1415).
-- **The Gap:** Verifying only the happy path of a workflow (e.g., successful backup or wisp compaction) does not prove that error-handling, warnings, and escalation pathways (which represent the highest-risk operational logic) are preserved.
-- **Recommendation:** Explicitly require that `test/packcompat` includes **behavioral-trigger fixtures** that simulate edge cases, such as mock failures, timeouts, and network disconnects, to force scripts and formulas down their warning and escalation paths.
+However, from the strict, empirical perspective of **Behavior Preservation Auditing**, several highly subtle, cross-document inconsistencies and critical edge cases remain unaddressed. These gaps—ranging from CI generator traps to multi-host concurrency blindness—could cause silent operational failures or repository state corruption if accepted too quickly.
 
 ---
 
 ## Evaluation of the Three Key Questions
 
 ### 1. Does every generalized Core asset have a corresponding external Gastown home for stripped role-specific behavior?
-- **Auditor Finding:** **Yes.** The "Existing Asset Migration Map" (documented in requirements and mirrored in design) explicitly lists the destination and rationale for every asset. For example, Gastown-specific prompt files, `prune-branches.sh`, and workflow formulas (such as `mol-deacon-patrol` and `mol-witness-patrol`) are moved cleanly to `gascity-packs/gastown`, while generalized operational cleanup moves to Core.
+**Auditor Finding: Yes.** The implementation plan establishes a strict multi-repo rollout sequence (Slice 1 prerequisite) ensuring that no source deletion or de-roling of the SDK occurs until Gastown-owned formulas, orders, scripts, prompts, and overlays are safely landed in `gascity-packs/gastown` at immutable commits.
 
 ### 2. Does the before-and-after inventory cover formulas, orders, scripts, prompts, template variables, and notification paths rather than only file moves?
-- **Auditor Finding:** **Yes.** The "Source-Derived Behavior Manifest" (§88) specifically encompasses trigger conditions, requester actions, detector routines, route metadata, mail/nudge targets, prompt fragments, and script branches. This guarantees that side-effecting behaviors are tracked at a logical level rather than merely as file paths on disk.
+**Auditor Finding: Yes.** The "Source-Derived Behavior Manifest" (§133–167) explicitly tracks behavior at the logical level—capturing triggers, requesters, detectors, mail/nudge targets, prompt fragments, and script branches. This directly answers prior concerns about file-level mapping opacity.
 
 ### 3. What artifact proves supported Gastown workflows still resolve and trigger after the split?
-- **Auditor Finding:** The canonical machine-readable **`plans/core-gastown-pack-migration/behavior-manifest.generated.yaml`** (and its companion public Gastown manifest `gastown/docs/behavior-manifest.generated.yaml`) represents the definitive, auditable proof artifact. Under §115–120, CI is configured to fail if any row is missing or lacks verified witnesses.
+**Auditor Finding:** The canonical machine-readable **`plans/core-gastown-pack-migration/behavior-manifest.generated.yaml`** and the `test/packcompat` suite represent the definitive, auditable proof. The packcompat gate executes moved scripts, composes molecules, and validates configured recipients from the public pin in a clean environment.
+
+---
+
+## Critical Risks & Missing Edge Cases (Auditor Findings)
+
+### 1. The CI Generator Freshness Trap (Self-Defeating Manifest Validation)
+* **The Risk:** The plan specifies that CI will fail if the behavior manifest is stale, and that the generator dynamically "walks old Gas City behavior-bearing sources" to ensure complete coverage (§154–160).
+* **The Gap:** Once Slice 7 deletes the legacy source directories (`internal/bootstrap/packs/core` and `examples/gastown/packs/maintenance`), any dynamic generator scan in CI on subsequent commits/PRs will find exactly **zero** old files. The generator will either crash, report empty rows, or fail to validate against the "after" state.
+* **The Fix:** The implementation plan must explicitly detail how the generator handles deleted legacy paths. It must either:
+  1. Fetch the "before" state from a historic Git ref (baseline commit) dynamically during the CI run, or
+  2. Validate against a frozen, cryptographically hashed or digest-verified snapshot of the "before" state checked into the repository, ensuring manual tampering of the manifest is blocked without requiring legacy folders to remain in the tree.
+
+### 2. Distributed/Network Shared-Disk Blindness (Multi-Host Concurrency Bypass)
+* **The Risk:** The Doctor's mutation coordinator uses process table checks (`ps`, `lsof`) to discover if a controller for the same city is running, refusing automatic fixes if one is active (§255–258).
+* **The Gap:** This check is strictly local. In enterprise, Kubernetes, or clustered environments where the city's workspace resides on a shared network disk (e.g., NFS, AWS EFS, or Kubernetes ReadWriteMany volumes), a controller running on Host A is completely invisible to `gc doctor --fix` running on Host B.
+* **The Consequence:** Concurrently running the Doctor's mutation coordinator while a remote controller is actively reading/writing will lead to catastrophic data corruption of the Task Store (Beads) or configuration files.
+* **The Fix:** The mutation coordinator must utilize a filesystem-level exclusive lock (such as `flock`/`fcntl` on a dedicated lock file under `.gc/` or a lock in the persistent DB/dolt backend) to guarantee multi-host concurrency protection, overriding the "no status files" rule for this exceptional, non-reentrant system mutation.
+
+### 3. In-Flight Session Path Stalls (Silent Pass on Open Question 4)
+* **The Risk:** Requirements Open Question 4 asks: *"For existing cities with in-flight sessions using prompts or formulas from retired paths, should the migration allow those sessions to finish with old materialized content, require an immediate restart after repair, or expose a separate operator decision?"*
+* **The Gap:** The implementation plan confidently declares "Open Questions: None," yet it completely fails to define a concrete engineering solution for in-flight sessions or beads referencing deleted paths.
+* **The Consequence:** When an old city is upgraded, active sessions referencing deleted template/formula file paths will suddenly crash or hang on their next step execution because those files (e.g., `examples/gastown/packs/maintenance/assets/scripts/reaper.sh`) have been deleted in Slice 7.
+* **The Fix:** The plan must explicitly resolve Open Question 4. We recommend that the mutation coordinator either:
+  1. Refuses to fix a city that contains active, unresolved in-flight sessions, or
+  2. Embeds a rewiring shim in the runtime-state migration layer that dynamically redirects legacy path references to their new Core/Gastown locations during session adoption.
+
+### 4. Dynamic Recipient Preflight and Silent Execution Failures in Generalized Scripts
+* **The Risk:** Scripts like `reaper.sh` and `jsonl-export.sh` are generalized to consume recipients dynamically from formula/order metadata (§133–167).
+* **The Gap:** If a recipient target is left unconfigured, is empty, or evaluates to `/`, executing commands like `gc mail send ""` or `gc mail send /` inside the shell scripts will cause unhandled script crashes.
+* **The Fix:** All generalized shell scripts must perform preflight verification of their recipient variables. If the target is empty or invalid, the script must gracefully log an audit warning to `stderr` and skip mail execution (exiting with code `0`) rather than crashing the entire workflow.
+
+### 5. Lack of Simulated Failure/Escalation Witness Fixtures in `test/packcompat`
+* **The Risk:** `test/packcompat` verifies that Gastown workflows load and trigger (happy path).
+* **The Gap:** Warning and escalation pathways (e.g., mail alerts to `mayor/` on reaper anomalies) represent the highest-risk operational code. Happy-path testing alone does not prove these paths are preserved.
+* **The Fix:** Mandate that `test/packcompat` include behavioral-trigger fixtures that inject simulated errors/timeouts to explicitly force and verify warning/escalation pathways.
 
 ---
 
 ## Required Changes for Finalization
 
-1. **Script Recipient Preflight Validation:** Amend §1379–1381 to mandate that generalized shell scripts explicitly check dynamic recipient variables and skip execution with code `0` on empty/slash targets.
-2. **Define Maintenance Worker Omission Policy:** Detail the exact SDK behavior and error-handling flow when the operator configures a city with no `core.maintenance_worker`.
-3. **Mandate Behavioral-Trigger Fixtures in `test/packcompat`:** Update §1412–1415 to require testing of simulated failure/escalation paths rather than just successful executions.
+1. **CI Generator Baseline Strategy:** Amend §133–167 to specify how the behavior manifest generator validates against a frozen/baseline historical reference after the legacy folders are physically deleted.
+2. **Network Lock Protection:** Update §245–274 to require a file-system level advisory lock (e.g., flock) to prevent multi-host mutation conflicts on shared storage.
+3. **Resolve Open Question 4 (In-Flight Sessions):** Define the exact pre-upgrade gate or session rewiring behavior for active sessions referencing deleted legacy paths.
+4. **Script Recipient Guard:** Mandate that generalized scripts handle empty/slash recipients by logging a warning and skipping execution gracefully.
+5. **Add Failure-Path Witness Fixtures:** Update §414–428 to require testing of simulated failure/escalation paths under `test/packcompat`.
