@@ -1,10 +1,10 @@
-# Lena Hoffmann — Public Pack Pin Cache Reviewer (Attempt 8, Independent DeepSeek V4 Flash Style)
+# Lena Hoffmann — Public Pack Pin Cache Reviewer (Attempt 9, Independent DeepSeek V4 Flash Style)
 
 **Verdict:** block
 
 > **Lane:** Public Gastown pin integrity, immutable content hash, `RepoCacheKey` identity, synthetic-alias retirement, offline and rollback behavior.
 >
-> Reviewed against the Attempt 8 design document (`.gc/design-reviews/ga-1ekw9l/attempt-8/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Pack Registry, Cache, And Retired Source Authority" (lines 313–357), §"Testing" (lines 603–686), and §"Rollout And Recovery" (lines 687–825).
+> Reviewed against the Attempt 9 design document (`.gc/design-reviews/ga-1ekw9l/attempt-9/design-before.md`, 835 lines, `updated_at: 2026-06-09T13:20:59Z`) — specifically §"Pack Registry, Cache, And Retired Source Authority" (lines 313–357), §"Testing" (lines 603–686), and §"Rollout And Recovery" (lines 687–825).
 >
 > This independent review is produced using the DeepSeek V4 Flash persona, focusing specifically on first-principles trust boundaries, cross-document state consistency, and unstated runtime assumptions.
 
@@ -18,7 +18,7 @@ Conforms to `gc.mayor.implementation-plan.v1`. Front matter carries the required
 
 ## Top Strengths of the Design
 
-- **Immutable Pin Security (Lines 329–331):** Anchoring `PublicGastownPackVersion` to an immutable `sha:` constant (line 331) and declaring branch/tag refs as non-authoritative fetchability metadata (line 331) successfully eliminates the risk of silent behavior drift on remote changes.
+- **Immutable Pin Security (Lines 329–331):** Pinned `PublicGastownPackVersion` to an immutable `sha:` constant (line 331) and declaring branch/tag refs as non-authoritative fetchability metadata (line 331) successfully eliminates the risk of silent behavior drift on remote changes.
 - **Fail-Closed Offline Assertions (Lines 668–670):** Specifying network-disabled tests for exact cache hits, digest mismatches, missing subpaths, and stale alias rejections guarantees that the cache boundaries remain secure in restricted or offline execution environments.
 - **Zero-Duplicate-Active Loader Gate (Lines 347–351):** Comparing active bundled and public packs prior to execution and failing closed on behavior-row overlap ensures that retired or custom/forked source conflicts cannot execute.
 
@@ -99,4 +99,4 @@ The transition relies on compatibility-pin adoption in Slices 2-4 (lines 739–7
 
 ## Final Verdict: Block
 
-The Attempt 8 public pack pin cache design is extremely structured and shows great progress, particularly on immutable SHA pinning and offline test specifications. However, because it contains an **internal timing contradiction** regarding subpath enforcement, lacks **concurrent write locking and staging on promotions**, presents a **fatal read-hit verification performance bottleneck**, omits the **internal pin ledger** in the pin-coherence gate, and presents a **fatal duplicate-definition rollback conflict** in Slice 5b, I must **Block** the plan. Enforcing subpaths at Slice 2, specifying atomic concurrent promotion staging, introducing a two-tiered read-hit validation model, expanding the coherence gate inputs, and clarifying the fold-rollback path are necessary to make this caching architecture robust, performant, and secure.
+The Attempt 9 public pack pin cache design is extremely structured and shows great progress, particularly on immutable SHA pinning and offline test specifications. However, because it contains an **internal timing contradiction** regarding subpath enforcement, lacks **concurrent write locking and staging on promotions**, presents a **fatal read-hit verification performance bottleneck**, omits the **internal pin ledger** in the pin-coherence gate, and presents a **fatal duplicate-definition rollback conflict** in Slice 5b, I must **Block** the plan. Enforcing subpaths at Slice 2, specifying atomic concurrent promotion staging, introducing a two-tiered read-hit validation model, expanding the coherence gate inputs, and clarifying the fold-rollback path are necessary to make this caching architecture robust, performant, and secure.
