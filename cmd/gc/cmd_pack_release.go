@@ -246,6 +246,13 @@ func resolveLocalPackReleaseSource(source, packPath string) (repoDir, resolvedPa
 	if err != nil {
 		return "", "", fmt.Errorf("resolving source path: %w", err)
 	}
+	// Resolve symlinks so git rev-parse --show-toplevel and filepath.Rel agree on
+	// the canonical form. On macOS /tmp is a symlink to /private/tmp; git resolves
+	// it but filepath.Abs does not, causing filepath.Rel to produce a ../-escaped
+	// path that fails the normalizePackReleasePath check.
+	if canonical, symlinkErr := filepath.EvalSymlinks(absSource); symlinkErr == nil {
+		absSource = canonical
+	}
 	repoDir, err = localGitRoot(absSource)
 	if err != nil {
 		return "", "", err
