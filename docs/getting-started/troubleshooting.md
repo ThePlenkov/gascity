@@ -195,18 +195,25 @@ Upgrade via Homebrew (`brew upgrade beads`) or download a newer release from
 ## Native Store Falls Back Because Hooks Are Installed
 
 Native `bd` store selection intentionally falls back to the subprocess-backed
-store when executable `.beads/hooks/on_create`, `.beads/hooks/on_update`, or
-`.beads/hooks/on_close` scripts are present. Those hooks historically emitted
-bead events for external `bd` writes; the native in-process store does not run
-shell hooks.
+store when operator-installed executable `.beads/hooks/on_create`,
+`.beads/hooks/on_update`, or `.beads/hooks/on_close` scripts are present. Those
+hooks historically emitted bead events for external `bd` writes; the native
+in-process store does not run shell hooks.
+
+Gas City's own event-forwarding hooks — the ones gc installs and reinstalls on
+every reconcile tick — carry a `# gc-hook-stamp: ` marker line and are
+**exempt from this check**. They coexist with the native store without forcing
+fallback.
 
 For controller-managed Gas City deployments, confirm that the controller is
 wrapping stores with `CachingStore` and emitting `bead.created`,
 `bead.updated`, `bead.closed`, and `bead.deleted` events to the event bus. After
-that migration is verified, remove the executable hook scripts from the city or
-rig `.beads/hooks/` directory to allow native store adoption. Keep
-`GC_BEADS_FORCE_FALLBACK=1` set when a deployment still depends on those hook
-scripts directly.
+that migration is verified, remove any **operator-installed** (unstamped)
+executable hook scripts from the city or rig `.beads/hooks/` directory to allow
+native store adoption. Do **not** remove gc's own stamped hooks — they are
+reinstalled every reconcile tick and no longer block native store selection.
+Keep `GC_BEADS_FORCE_FALLBACK=1` set when a deployment still depends on
+operator-installed hook scripts directly.
 
 ## flock Not Found (macOS)
 
