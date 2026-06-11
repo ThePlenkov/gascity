@@ -22,7 +22,7 @@ var fanoutVarPattern = regexp.MustCompile(`\{([^}]+)\}`)
 
 func processFanout(store beads.Store, bead beads.Bead, opts ProcessOptions) (ControlResult, error) {
 	switch bead.Metadata[beadmeta.FanoutStateMetadataKey] {
-	case "spawned":
+	case beadmeta.SpawnStateSpawned:
 		outcome, err := resolveFinalizeOutcome(store, bead.ID)
 		if err != nil {
 			if errors.Is(err, errFinalizePending) {
@@ -73,8 +73,8 @@ func processFanout(store beads.Store, bead beads.Bead, opts ProcessOptions) (Con
 	if err != nil {
 		return ControlResult{}, fmt.Errorf("%s: resolving source step %q: %w", bead.ID, sourceRef, err)
 	}
-	if source.Metadata[beadmeta.OutcomeMetadataKey] == "fail" {
-		if err := setOutcomeAndClose(store, bead.ID, "fail"); err != nil {
+	if source.Metadata[beadmeta.OutcomeMetadataKey] == beadmeta.OutcomeFail {
+		if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomeFail); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing failed fanout: %w", bead.ID, err)
 		}
 		closedBead, err := store.Get(bead.ID)
@@ -93,7 +93,7 @@ func processFanout(store beads.Store, bead beads.Bead, opts ProcessOptions) (Con
 		return ControlResult{}, fmt.Errorf("%w: %s: resolving items: %w", ErrControlGraphMalformed, bead.ID, err)
 	}
 	if len(items) == 0 {
-		if err := setOutcomeAndClose(store, bead.ID, "pass"); err != nil {
+		if err := setOutcomeAndClose(store, bead.ID, beadmeta.OutcomePass); err != nil {
 			return ControlResult{}, fmt.Errorf("%s: closing empty fanout: %w", bead.ID, err)
 		}
 		closedBead, err := store.Get(bead.ID)
@@ -119,7 +119,7 @@ func processFanout(store beads.Store, bead beads.Bead, opts ProcessOptions) (Con
 		mode = "parallel"
 	}
 	if strings.TrimSpace(bead.Metadata[beadmeta.FanoutStateMetadataKey]) == "" {
-		if err := store.SetMetadataBatch(bead.ID, map[string]string{beadmeta.FanoutStateMetadataKey: "spawning"}); err != nil {
+		if err := store.SetMetadataBatch(bead.ID, map[string]string{beadmeta.FanoutStateMetadataKey: beadmeta.SpawnStateSpawning}); err != nil {
 			if controllerSpawnBoundaryPending(store, bead.ID, err, opts) {
 				return ControlResult{}, ErrControlPending
 			}
@@ -201,7 +201,7 @@ func processFanout(store beads.Store, bead beads.Bead, opts ProcessOptions) (Con
 	}
 
 	spawnedMetadata := map[string]string{
-		beadmeta.FanoutStateMetadataKey:  "spawned",
+		beadmeta.FanoutStateMetadataKey:  beadmeta.SpawnStateSpawned,
 		beadmeta.SpawnedCountMetadataKey: strconv.Itoa(len(items)),
 	}
 	clearControllerSpawnErrorMetadata(spawnedMetadata)
@@ -300,7 +300,7 @@ func routeFanoutFragmentSteps(fragment *formula.FragmentRecipe, control beads.Be
 	routeCfg := loadAttemptRouteConfig(opts.CityPath)
 	for i := range fragment.Steps {
 		step := &fragment.Steps[i]
-		if step.Metadata[beadmeta.KindMetadataKey] == "spec" {
+		if step.Metadata[beadmeta.KindMetadataKey] == beadmeta.KindSpec {
 			continue
 		}
 		if isAttemptControlKind(step.Metadata[beadmeta.KindMetadataKey]) {
@@ -623,7 +623,7 @@ func fragmentDepSatisfiedDynamically(store beads.Store, stepByID map[string]form
 	if !ok {
 		return false, nil
 	}
-	if dep.Type != "blocks" || fromStep.Metadata[beadmeta.KindMetadataKey] != "ralph" || toStep.Metadata[beadmeta.KindMetadataKey] != "check" {
+	if dep.Type != "blocks" || fromStep.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindRalph || toStep.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindCheck {
 		return false, nil
 	}
 
@@ -643,7 +643,7 @@ func fragmentDepSatisfiedDynamically(store beads.Store, stepByID map[string]form
 		if err != nil {
 			return false, err
 		}
-		if check.Metadata[beadmeta.KindMetadataKey] != "check" {
+		if check.Metadata[beadmeta.KindMetadataKey] != beadmeta.KindCheck {
 			continue
 		}
 		if check.Metadata[beadmeta.LogicalBeadIDMetadataKey] == logicalID {
@@ -674,7 +674,7 @@ func discardPartialFragmentInstance(store beads.Store, partial map[string]beads.
 				return err
 			}
 			if err := store.SetMetadataBatch(id, map[string]string{
-				beadmeta.OutcomeMetadataKey:         "skipped",
+				beadmeta.OutcomeMetadataKey:         beadmeta.OutcomeSkipped,
 				beadmeta.PartialFragmentMetadataKey: "true",
 			}); err != nil {
 				return err

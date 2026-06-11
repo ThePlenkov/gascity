@@ -129,7 +129,7 @@ func closedWispGCEntries(store beads.Store) ([]beads.Bead, error) {
 		return nil, fmt.Errorf("listing closed molecule roots: %w", err)
 	}
 	appendUnique(molecules)
-	wisps, err := store.List(beads.ListQuery{Status: "closed", Metadata: map[string]string{beadmeta.KindMetadataKey: "wisp"}, TierMode: beads.TierBoth})
+	wisps, err := store.List(beads.ListQuery{Status: "closed", Metadata: map[string]string{beadmeta.KindMetadataKey: beadmeta.KindWisp}, TierMode: beads.TierBoth})
 	if err != nil {
 		return nil, fmt.Errorf("listing closed wisp roots: %w", err)
 	}
