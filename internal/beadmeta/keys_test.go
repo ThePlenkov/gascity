@@ -60,7 +60,6 @@ func TestPinnedValues(t *testing.T) {
 		ScopeRefMetadataKey:          "gc.scope_ref",
 		AttemptMetadataKey:           "gc.attempt",
 		ExecutionRoutedToMetadataKey: "gc.execution_routed_to",
-		PhaseMetadataKey:             "gc.phase",
 		FormulaVarPrefix:             "gc.var.",
 		Namespace:                    "gc.",
 	}
