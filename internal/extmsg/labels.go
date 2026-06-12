@@ -19,6 +19,7 @@ const (
 
 	labelBindingConversationPrefix = "extmsg:binding:conv:v1:"
 	labelBindingSessionPrefix      = "extmsg:binding:session:v1:"
+	labelBindingAgentPrefix        = "extmsg:binding:agent:v1:"
 	labelDeliveryRoutePrefix       = "extmsg:delivery:route:v1:"
 	labelDeliverySessionPrefix     = "extmsg:delivery:session:v1:"
 	labelGroupRootPrefix           = "extmsg:group:root:v1:"
@@ -47,6 +48,10 @@ func bindingConversationLabel(ref ConversationRef) string {
 
 func bindingSessionLabel(sessionID string) string {
 	return labelBindingSessionPrefix + strings.TrimSpace(sessionID)
+}
+
+func bindingAgentLabel(agentName string) string {
+	return labelBindingAgentPrefix + strings.TrimSpace(agentName)
 }
 
 func deliveryRouteLabel(ref ConversationRef, sessionID string) string {
