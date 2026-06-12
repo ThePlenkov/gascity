@@ -19,7 +19,10 @@ func (cs *controllerState) startEmergencyEventRelay(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case rec := <-cs.emergencyCh:
+			case rec, ok := <-cs.emergencyCh:
+				if !ok {
+					return
+				}
 				if err := emergency.RecordSignaled(cs.eventProv, rec); err != nil {
 					log.Printf("api: emergency relay: %v", err)
 				}

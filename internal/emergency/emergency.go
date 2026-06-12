@@ -204,8 +204,8 @@ func MarkNotifyDedupe(cityPath, key string, now time.Time, ttl time.Duration) (D
 	if key == "" {
 		return DedupeResult{}, fmt.Errorf("dedupe key is required")
 	}
-	if strings.ContainsAny(key, "/\\") {
-		return DedupeResult{}, fmt.Errorf("invalid dedupe key: must not contain path separators")
+	if key == "." || key == ".." || strings.ContainsAny(key, "/\\") {
+		return DedupeResult{}, fmt.Errorf("invalid dedupe key: must not contain path separators or dot elements")
 	}
 	dir := filepath.Join(SpoolDir(cityPath), notifyDedupeDirName)
 	if err := os.MkdirAll(dir, 0o700); err != nil {

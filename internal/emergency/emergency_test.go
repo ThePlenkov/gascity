@@ -252,7 +252,7 @@ func TestMarkNotifyDedupeSuppressesWithinTTLAndRefiresAfterExpiry(t *testing.T) 
 }
 
 func TestMarkNotifyDedupeRejectsUnsafeKeys(t *testing.T) {
-	for _, key := range []string{"", "severity/escape", `severity\escape`} {
+	for _, key := range []string{"", "severity/escape", `severity\escape`, ".", ".."} {
 		t.Run(key, func(t *testing.T) {
 			if _, err := MarkNotifyDedupe(t.TempDir(), key, time.Now(), time.Minute); err == nil {
 				t.Fatalf("MarkNotifyDedupe(%q) error = nil, want validation error", key)
