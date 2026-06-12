@@ -253,6 +253,13 @@ ready-work and issues-tier queries. Backends without a native wisps table may
 store the bit internally, such as with a private label, but must return it as
 the `ephemeral` JSON field.
 
+`no_history=true` is part of the same contract. No-history beads are durable
+work without version-control history: they stay visible in issues-tier
+queries (only `ephemeral` rows are excluded there) and also appear in
+wisps-tier queries. Scripts must round-trip the bit on create/read paths —
+again, a private label is fine internally — and return it as the
+`no_history` JSON field.
+
 `defer_until` is part of the ready-work contract. Scripts may exclude
 future-deferred beads from `ready` output themselves, but any bead they return
 from `ready`, `get`, `list`, or `children` must preserve `defer_until` so Gas
