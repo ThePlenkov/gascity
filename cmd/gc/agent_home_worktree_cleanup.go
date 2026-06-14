@@ -21,6 +21,7 @@ type agentWorktreeGitProbe interface {
 	CurrentBranch() (string, error)
 	HasUncommittedWork() bool
 	CheckoutDetach(ref string) error
+	ProbeDefaultBranch() string
 }
 
 // newAgentWorktreeGitProbe is the factory for the git probe. Tests may
@@ -127,14 +128,19 @@ func cleanupClosedBeadAgentHomeWorktrees(
 				continue
 			}
 
-			if err := wg.CheckoutDetach("origin/main"); err != nil {
-				fmt.Fprintf(stderr, "cleanupClosedBeadAgentHomeWorktrees: resetting %s to origin/main: %v\n", worktreePath, err) //nolint:errcheck
+			defaultBranch := wg.ProbeDefaultBranch()
+			if defaultBranch == "" {
+				defaultBranch = "main"
+			}
+			resetRef := "origin/" + defaultBranch
+			if err := wg.CheckoutDetach(resetRef); err != nil {
+				fmt.Fprintf(stderr, "cleanupClosedBeadAgentHomeWorktrees: resetting %s to %s: %v\n", worktreePath, resetRef, err) //nolint:errcheck
 				continue
 			}
 			if removeErr := os.Remove(stalePath); removeErr != nil && !os.IsNotExist(removeErr) {
 				fmt.Fprintf(stderr, "cleanupClosedBeadAgentHomeWorktrees: removing stale marker from %s: %v\n", worktreePath, removeErr) //nolint:errcheck
 			}
-			fmt.Fprintf(stderr, "cleanupClosedBeadAgentHomeWorktrees: reset %s to origin/main (bead %s closed)\n", worktreePath, beadID) //nolint:errcheck
+			fmt.Fprintf(stderr, "cleanupClosedBeadAgentHomeWorktrees: reset %s to %s (bead %s closed)\n", worktreePath, resetRef, beadID) //nolint:errcheck
 			cleaned++
 		}
 	}
