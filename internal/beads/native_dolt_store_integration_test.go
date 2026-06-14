@@ -11,6 +11,43 @@ import (
 	beadslib "github.com/steveyegge/beads"
 )
 
+// TestNativeDoltStoreEphemeralCreate verifies that creating an ephemeral bead
+// (Ephemeral: true) succeeds. This exercises RecordEventInTable on wisp_events,
+// which regressed in beads v1.0.5 because the INSERT omitted the id column
+// while the live schema has no DEFAULT for that column (migration 0010 dropped
+// it). See ga-xd30uy.
+func TestNativeDoltStoreEphemeralCreate(t *testing.T) {
+	ctx := context.Background()
+	storage, err := beadslib.OpenBestAvailable(ctx, filepath.Join(t.TempDir(), ".beads"))
+	if err != nil {
+		t.Skipf("upstream native beads storage unavailable: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := storage.Close(); err != nil {
+			t.Fatalf("close upstream storage: %v", err)
+		}
+	})
+	if err := storage.SetConfig(ctx, "issue_prefix", "gc"); err != nil {
+		t.Fatalf("set issue prefix: %v", err)
+	}
+	store := newNativeDoltStoreWithStorageAndPrefix(storage, "ephemeral-regression", "gc")
+
+	wisp, err := store.Create(Bead{Title: "ephemeral regression bead", Ephemeral: true})
+	if err != nil {
+		t.Fatalf("Create ephemeral bead: %v", err)
+	}
+	if !wisp.Ephemeral {
+		t.Fatalf("Ephemeral = false on created bead, want true")
+	}
+	got, err := store.Get(wisp.ID)
+	if err != nil {
+		t.Fatalf("Get ephemeral bead: %v", err)
+	}
+	if got.Title != "ephemeral regression bead" {
+		t.Fatalf("Title = %q, want %q", got.Title, "ephemeral regression bead")
+	}
+}
+
 func TestNativeDoltStoreRealBackendRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	storage, err := beadslib.OpenBestAvailable(ctx, filepath.Join(t.TempDir(), ".beads"))

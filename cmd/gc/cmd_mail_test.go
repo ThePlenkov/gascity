@@ -1966,7 +1966,10 @@ func TestCmdMailReplyExecProviderNotifyWithoutCityWarnsAndSendsReply(t *testing.
 	t.Setenv("GC_ALIAS", "")
 	t.Setenv("GC_SESSION_ID", "")
 	t.Setenv("GC_AGENT", "")
-	t.Chdir(t.TempDir())
+	dir := t.TempDir()
+	// Pin HOME to bound city discovery away from /tmp/.gc on the host.
+	t.Setenv("HOME", dir)
+	t.Chdir(dir)
 
 	var stdout, stderr bytes.Buffer
 	code := cmdMailReply([]string{"gc-1", "reply body"}, "", "", true, &stdout, &stderr)

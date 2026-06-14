@@ -440,6 +440,8 @@ func TestResolveEventsPath_NoSourceReturnsError(t *testing.T) {
 		t.Fatalf("getwd: %v", err)
 	}
 	cwd := t.TempDir()
+	// Pin HOME to bound city discovery away from /tmp/.gc on the host.
+	t.Setenv("HOME", cwd)
 	if err := os.Chdir(cwd); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}

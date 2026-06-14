@@ -576,8 +576,12 @@ func TestCityStatusJSONReportsCatalogListError(t *testing.T) {
 }
 
 func TestCmdCityStatusJSONConfigErrorIsStructured(t *testing.T) {
+	// Pin HOME to a controlled dir so city discovery stops here and does
+	// not walk up to /tmp where a live .gc/ may be present on the host.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
 	var stdout, stderr bytes.Buffer
-	code := cmdCityStatus([]string{filepath.Join(t.TempDir(), "missing-city")}, true, &stdout, &stderr)
+	code := cmdCityStatus([]string{filepath.Join(home, "missing-city")}, true, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("code = %d, want 1", code)
 	}
