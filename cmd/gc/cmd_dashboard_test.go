@@ -10,7 +10,10 @@ import (
 
 func TestRunDashboardServeAllowsNoCityWithSupervisor(t *testing.T) {
 	configureIsolatedRuntimeEnv(t)
-	t.Chdir(t.TempDir())
+	dir := t.TempDir()
+	// Pin HOME to bound city discovery away from /tmp/.gc on the host.
+	t.Setenv("HOME", dir)
+	t.Chdir(dir)
 
 	oldAlive := supervisorAliveHook
 	oldServe := dashboardServeHook
@@ -53,7 +56,11 @@ func TestRunDashboardServeAllowsNoCityWithSupervisor(t *testing.T) {
 
 func TestRunDashboardServeAllowsNoCityWithAPIOverride(t *testing.T) {
 	configureIsolatedRuntimeEnv(t)
-	t.Chdir(t.TempDir())
+	dir := t.TempDir()
+	// Pin HOME so city discovery stops at dir and does not climb into
+	// /tmp or $HOME where a live .gc/ may exist on the host.
+	t.Setenv("HOME", dir)
+	t.Chdir(dir)
 
 	oldAlive := supervisorAliveHook
 	oldServe := dashboardServeHook

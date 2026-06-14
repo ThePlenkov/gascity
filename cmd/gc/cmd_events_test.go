@@ -80,7 +80,10 @@ func TestDoEventsSupervisorDefaultUsesTaggedJSONLItems(t *testing.T) {
 }
 
 func TestEventsJSONFlagIsSilentNoOp(t *testing.T) {
-	t.Chdir(t.TempDir())
+	dir := t.TempDir()
+	// Pin HOME to bound city discovery away from /tmp/.gc on the host.
+	t.Setenv("HOME", dir)
+	t.Chdir(dir)
 
 	items := []cliWireTaggedEvent{
 		{Actor: "human", City: "alpha", Seq: 3, Subject: "gc-1", Ts: time.Unix(1700000000, 0).UTC(), Type: "bead.created"},

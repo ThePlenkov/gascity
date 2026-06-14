@@ -6243,6 +6243,9 @@ prompt_template = "prompts/mayor.md"
 // can be resolved, rather than silently emitting the default prompt.
 func TestDoPrimeStrictNoCity(t *testing.T) {
 	dir := t.TempDir()
+	// Pin HOME so the city discovery walk stops at dir and does not climb
+	// into /tmp or $HOME, which may have a live .gc/ on the host.
+	t.Setenv("HOME", dir)
 	orig, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(dir); err != nil {

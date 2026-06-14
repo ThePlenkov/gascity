@@ -4387,7 +4387,10 @@ func TestStartHiddenLegacyFlags(t *testing.T) {
 }
 
 func TestDoStartRequiresInitializedCity(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "bright-lights")
+	home := t.TempDir()
+	// Pin HOME to bound city discovery away from /tmp/.gc on the host.
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, "bright-lights")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

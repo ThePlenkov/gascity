@@ -425,9 +425,11 @@ func TestRigAnywhere_ResolveContext(t *testing.T) {
 
 	t.Run("failure_nothing_matches", func(t *testing.T) {
 		resetFlags(t)
-		t.Setenv("GC_HOME", t.TempDir())
-
 		isolated := t.TempDir()
+		// Pin HOME so city discovery stops at isolated and does not walk up
+		// to /tmp or $HOME where a live .gc/ may be present on the host.
+		t.Setenv("HOME", isolated)
+		t.Setenv("GC_HOME", isolated)
 		setCwd(t, isolated)
 
 		_, err := resolveContext()
