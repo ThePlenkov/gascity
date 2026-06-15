@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gastownhall/gascity/internal/events"
+	"github.com/gastownhall/gascity/usage"
 )
 
 // NewSessionHandle constructs a session-backed worker handle.
@@ -55,11 +56,16 @@ func NewSessionHandle(cfg SessionHandleConfig) (*SessionHandle, error) {
 	if recorder == nil {
 		recorder = events.Discard
 	}
+	usageSink := cfg.UsageSink
+	if usageSink == nil {
+		usageSink = usage.Discard
+	}
 
 	return &SessionHandle{
 		manager:     cfg.Manager,
 		adapter:     adapter,
 		recorder:    recorder,
+		usageSink:   usageSink,
 		searchPaths: searchPaths,
 		session:     spec,
 		sessionID:   strings.TrimSpace(spec.ID),

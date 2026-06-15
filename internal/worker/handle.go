@@ -9,6 +9,7 @@ import (
 	"github.com/gastownhall/gascity/internal/events"
 	"github.com/gastownhall/gascity/internal/runtime"
 	sessionpkg "github.com/gastownhall/gascity/internal/session"
+	"github.com/gastownhall/gascity/usage"
 )
 
 var (
@@ -246,6 +247,7 @@ type SessionHandleConfig struct {
 	SearchPaths []string
 	Adapter     SessionLogAdapter
 	Recorder    events.Recorder
+	UsageSink   usage.Sink
 	Session     SessionSpec
 }
 
@@ -255,6 +257,7 @@ type SessionHandle struct {
 	manager     *sessionpkg.Manager
 	adapter     SessionLogAdapter
 	recorder    events.Recorder
+	usageSink   usage.Sink
 	searchPaths []string
 	session     SessionSpec
 	sessionID   string
