@@ -5366,6 +5366,30 @@ type CreateBeadParams struct {
 	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
 }
 
+// GetV0CityByCityNameBeadsEphemeralParams defines parameters for GetV0CityByCityNameBeadsEphemeral.
+type GetV0CityByCityNameBeadsEphemeralParams struct {
+	// Status Filter by status.
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Type Filter by bead type.
+	Type *string `form:"type,omitempty" json:"type,omitempty"`
+
+	// Label Filter by label.
+	Label *string `form:"label,omitempty" json:"label,omitempty"`
+
+	// Assignee Filter by assignee.
+	Assignee *string `form:"assignee,omitempty" json:"assignee,omitempty"`
+
+	// Parent Filter by parent bead id.
+	Parent *string `form:"parent,omitempty" json:"parent,omitempty"`
+
+	// All Include closed ephemeral beads.
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+
+	// Limit Max rows (0 = unbounded).
+	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // GetV0CityByCityNameBeadsReadyParams defines parameters for GetV0CityByCityNameBeadsReady.
 type GetV0CityByCityNameBeadsReadyParams struct {
 	// Index Event sequence number; when provided, blocks until a newer event arrives.
@@ -11606,6 +11630,9 @@ type ClientInterface interface {
 
 	CreateBead(ctx context.Context, cityName string, params *CreateBeadParams, body CreateBeadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetV0CityByCityNameBeadsEphemeral request
+	GetV0CityByCityNameBeadsEphemeral(ctx context.Context, cityName string, params *GetV0CityByCityNameBeadsEphemeralParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetV0CityByCityNameBeadsGraphByRootId request
 	GetV0CityByCityNameBeadsGraphByRootId(ctx context.Context, cityName string, rootID string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -12525,6 +12552,18 @@ func (c *Client) CreateBeadWithBody(ctx context.Context, cityName string, params
 
 func (c *Client) CreateBead(ctx context.Context, cityName string, params *CreateBeadParams, body CreateBeadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateBeadRequest(c.Server, cityName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetV0CityByCityNameBeadsEphemeral(ctx context.Context, cityName string, params *GetV0CityByCityNameBeadsEphemeralParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetV0CityByCityNameBeadsEphemeralRequest(c.Server, cityName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16329,6 +16368,158 @@ func NewCreateBeadRequestWithBody(server string, cityName string, params *Create
 			req.Header.Set("Idempotency-Key", headerParam1)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewGetV0CityByCityNameBeadsEphemeralRequest generates requests for GetV0CityByCityNameBeadsEphemeral
+func NewGetV0CityByCityNameBeadsEphemeralRequest(server string, cityName string, params *GetV0CityByCityNameBeadsEphemeralParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "cityName", cityName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v0/city/%s/beads/ephemeral", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "type", *params.Type, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Label != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "label", *params.Label, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Assignee != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "assignee", *params.Assignee, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Parent != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "parent", *params.Parent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.All != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "all", *params.All, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -24134,6 +24325,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateBeadWithResponse(ctx context.Context, cityName string, params *CreateBeadParams, body CreateBeadJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBeadResponse, error)
 
+	// GetV0CityByCityNameBeadsEphemeralWithResponse request
+	GetV0CityByCityNameBeadsEphemeralWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameBeadsEphemeralParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameBeadsEphemeralResponse, error)
+
 	// GetV0CityByCityNameBeadsGraphByRootIdWithResponse request
 	GetV0CityByCityNameBeadsGraphByRootIdWithResponse(ctx context.Context, cityName string, rootID string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameBeadsGraphByRootIdResponse, error)
 
@@ -25264,6 +25458,29 @@ func (r CreateBeadResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateBeadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetV0CityByCityNameBeadsEphemeralResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListBodyBead
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetV0CityByCityNameBeadsEphemeralResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetV0CityByCityNameBeadsEphemeralResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -28394,6 +28611,15 @@ func (c *ClientWithResponses) CreateBeadWithResponse(ctx context.Context, cityNa
 	return ParseCreateBeadResponse(rsp)
 }
 
+// GetV0CityByCityNameBeadsEphemeralWithResponse request returning *GetV0CityByCityNameBeadsEphemeralResponse
+func (c *ClientWithResponses) GetV0CityByCityNameBeadsEphemeralWithResponse(ctx context.Context, cityName string, params *GetV0CityByCityNameBeadsEphemeralParams, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameBeadsEphemeralResponse, error) {
+	rsp, err := c.GetV0CityByCityNameBeadsEphemeral(ctx, cityName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetV0CityByCityNameBeadsEphemeralResponse(rsp)
+}
+
 // GetV0CityByCityNameBeadsGraphByRootIdWithResponse request returning *GetV0CityByCityNameBeadsGraphByRootIdResponse
 func (c *ClientWithResponses) GetV0CityByCityNameBeadsGraphByRootIdWithResponse(ctx context.Context, cityName string, rootID string, reqEditors ...RequestEditorFn) (*GetV0CityByCityNameBeadsGraphByRootIdResponse, error) {
 	rsp, err := c.GetV0CityByCityNameBeadsGraphByRootId(ctx, cityName, rootID, reqEditors...)
@@ -30726,6 +30952,39 @@ func ParseCreateBeadResponse(rsp *http.Response) (*CreateBeadResponse, error) {
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetV0CityByCityNameBeadsEphemeralResponse parses an HTTP response from a GetV0CityByCityNameBeadsEphemeralWithResponse call
+func ParseGetV0CityByCityNameBeadsEphemeralResponse(rsp *http.Response) (*GetV0CityByCityNameBeadsEphemeralResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetV0CityByCityNameBeadsEphemeralResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListBodyBead
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel

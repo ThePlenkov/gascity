@@ -7178,6 +7178,65 @@ export type CreateBeadResponses = {
 
 export type CreateBeadResponse = CreateBeadResponses[keyof CreateBeadResponses];
 
+export type GetV0CityByCityNameBeadsEphemeralData = {
+    body?: never;
+    path: {
+        /**
+         * City name.
+         */
+        cityName: string;
+    };
+    query?: {
+        /**
+         * Filter by status.
+         */
+        status?: string;
+        /**
+         * Filter by bead type.
+         */
+        type?: string;
+        /**
+         * Filter by label.
+         */
+        label?: string;
+        /**
+         * Filter by assignee.
+         */
+        assignee?: string;
+        /**
+         * Filter by parent bead id.
+         */
+        parent?: string;
+        /**
+         * Include closed ephemeral beads.
+         */
+        all?: boolean;
+        /**
+         * Max rows (0 = unbounded).
+         */
+        limit?: number;
+    };
+    url: '/v0/city/{cityName}/beads/ephemeral';
+};
+
+export type GetV0CityByCityNameBeadsEphemeralErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type GetV0CityByCityNameBeadsEphemeralError = GetV0CityByCityNameBeadsEphemeralErrors[keyof GetV0CityByCityNameBeadsEphemeralErrors];
+
+export type GetV0CityByCityNameBeadsEphemeralResponses = {
+    /**
+     * OK
+     */
+    200: ListBodyBead;
+};
+
+export type GetV0CityByCityNameBeadsEphemeralResponse = GetV0CityByCityNameBeadsEphemeralResponses[keyof GetV0CityByCityNameBeadsEphemeralResponses];
+
 export type GetV0CityByCityNameBeadsGraphByRootIdData = {
     body?: never;
     path: {

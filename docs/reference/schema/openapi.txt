@@ -17785,6 +17785,144 @@
         "summary": "Create a bead"
       }
     },
+    "/v0/city/{cityName}/beads/ephemeral": {
+      "get": {
+        "operationId": "get-v0-city-by-city-name-beads-ephemeral",
+        "parameters": [
+          {
+            "description": "City name.",
+            "in": "path",
+            "name": "cityName",
+            "required": true,
+            "schema": {
+              "description": "City name.",
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by status.",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "Filter by status.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by bead type.",
+            "explode": false,
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "description": "Filter by bead type.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by label.",
+            "explode": false,
+            "in": "query",
+            "name": "label",
+            "schema": {
+              "description": "Filter by label.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by assignee.",
+            "explode": false,
+            "in": "query",
+            "name": "assignee",
+            "schema": {
+              "description": "Filter by assignee.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by parent bead id.",
+            "explode": false,
+            "in": "query",
+            "name": "parent",
+            "schema": {
+              "description": "Filter by parent bead id.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include closed ephemeral beads.",
+            "explode": false,
+            "in": "query",
+            "name": "all",
+            "schema": {
+              "description": "Include closed ephemeral beads.",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Max rows (0 = unbounded).",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "Max rows (0 = unbounded).",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListBodyBead"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-GC-Cache-Age-S": {
+                "schema": {
+                  "description": "Age in seconds of the CachingStore snapshot that served this response (0 if not applicable).",
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "X-GC-Index": {
+                "schema": {
+                  "description": "Latest event sequence number.",
+                  "format": "int64",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "X-GC-Request-Id": {
+                "$ref": "#/components/headers/X-GC-Request-Id"
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error",
+            "headers": {
+              "X-GC-Request-Id": {
+                "$ref": "#/components/headers/X-GC-Request-Id"
+              }
+            }
+          }
+        },
+        "summary": "Get v0 city by city name beads ephemeral"
+      }
+    },
     "/v0/city/{cityName}/beads/graph/{rootID}": {
       "get": {
         "operationId": "get-v0-city-by-city-name-beads-graph-by-root-id",
