@@ -24,7 +24,7 @@ Gate date: 2026-06-16
 | 3 | Tests pass | PASS | `go build ./cmd/gc` passed. `go vet ./...` passed. `make test-fast-parallel` passed: all fast jobs passed. `make test-cover` passed and merged `coverage.noncmdgc.txt` plus six `coverage.cmdgc.*.txt` profiles into `coverage.txt`; total coverage was 70.9%. `cmd/gc` coverage shard runtimes were 48.628s, 50.423s, 54.604s, 66.928s, 74.080s, and 70.909s. |
 | 4 | No high-severity review findings open | PASS | ga-qux1ih review notes contain one INFO finding (`UNIT_COVER_PKGS` is now a dead variable) and no HIGH findings. |
 | 5 | Final branch is clean | PASS | Clean gate worktree before gate file; generated coverage artifacts removed after `make test-cover`; final cleanliness rechecked after committing this gate file. |
-| 6 | Branch diverges cleanly from main | PASS | `git merge-tree --write-tree HEAD origin/main` reported clean. Current `origin/main` at 47afaf75a454d7577ff33b9210fe11bd8c172820; merge-base 47afaf75a454d7577ff33b9210fe11bd8c172820. |
+| 6 | Branch diverges cleanly from main | PASS | Rebased cleanly onto main (2026-06-16). Current `origin/main` at e6c2df1fa3f0a66ed9c09b4edc4b2aa8563c6ea7; merge-base e6c2df1fa3f0a66ed9c09b4edc4b2aa8563c6ea7. |
 | 7 | Single feature theme | PASS | Single Makefile-only test-infrastructure change for coverage execution; no production code, config, API, schema, or runtime behavior changes. |
 
 ## Diff Scope
