@@ -2736,6 +2736,40 @@ func TestSlingExpandConvoy(t *testing.T) {
 	}
 }
 
+// TestSlingExpandConvoy_NoFormulaPreventsDefaultFormulaAttachment verifies
+// that RouteOpts.NoFormula propagates through ExpandConvoy to DoSlingBatch
+// so a convoy's children are routed as plain beads even when the target
+// agent has a DefaultSlingFormula. Before the fix, ExpandConvoy silently
+// dropped NoFormula and the formula-attachment path was always attempted.
+func TestSlingExpandConvoy_NoFormulaPreventsDefaultFormulaAttachment(t *testing.T) {
+	runner := newFakeRunner()
+	cfg := &config.City{Workspace: config.Workspace{Name: "test"}}
+	deps := testDeps(cfg, runtime.NewFake(), runner.run)
+	store := deps.Store
+	convoy, _ := store.Create(beads.Bead{Title: "convoy", Type: "convoy"})
+	if _, err := store.Create(beads.Bead{Title: "task1", Type: "task", ParentID: convoy.ID, Status: "open"}); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := New(deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Agent with a DefaultSlingFormula that does NOT exist in the formula dir.
+	// Without the NoFormula fix, ExpandConvoy would attempt to attach the
+	// formula and fail with "formula not found". With the fix it skips formula
+	// attachment and routes as a plain bead.
+	nonexistent := "does-not-exist-formula"
+	a := config.Agent{Name: "worker", MaxActiveSessions: intPtr(1), DefaultSlingFormula: &nonexistent}
+	result, err := s.ExpandConvoy(context.Background(), convoy.ID, a, RouteOpts{NoFormula: true}, store)
+	if err != nil {
+		t.Fatalf("ExpandConvoy with NoFormula: %v", err)
+	}
+	if result.Routed != 1 {
+		t.Errorf("Routed = %d, want 1", result.Routed)
+	}
+}
+
 func TestDoSlingPoolEmptyWarns(t *testing.T) {
 	runner := newFakeRunner()
 	cfg := &config.City{Workspace: config.Workspace{Name: "test"}}
