@@ -12,8 +12,8 @@ This devcontainer reproduces a development environment for [gastownhall/gascity]
 | `flock` | apt | system (via `util-linux`) |
 | `git` | devcontainer feature | latest |
 | `gh` | devcontainer feature | latest |
-| `dolt` | GitHub release tarball | `DOLT_VERSION` from `deps.env` (currently 2.1.7) |
-| `bd` (Beads CLI) | GitHub release tarball | `BD_VERSION` from `deps.env` (currently v1.0.5) |
+| `dolt` | `.github/scripts/install-dolt-archive.sh` (SHA-256 verified) | `DOLT_VERSION` from `deps.env` (currently 2.1.7) |
+| `bd` (Beads CLI) | `.github/scripts/install-bd-archive.sh` (SHA-256 verified) | `BD_VERSION` from `deps.env` (currently v1.0.5) |
 | `gc` (Gas City) | `make install` from source | built from current commit |
 
 Versions come from `deps.env` so bumping is one file change.
@@ -23,7 +23,7 @@ Versions come from `deps.env` so bumping is one file change.
 | Hook | Runs | Notes |
 |---|---|---|
 | `onCreateCommand` | Once on container create | `apt install` of the system packages |
-| `postCreateCommand` | Once after `onCreate` | Installs `dolt`, `bd`, then builds and installs `gc` from source |
+| `postCreateCommand` | Once after `onCreate` | Installs `dolt` and `bd` via the canonical `.github/scripts/install-*-archive.sh` scripts (pinned, SHA-256 verified), then builds and installs `gc` from source |
 | `postStartCommand` | Every time the container starts | Smoke check that all binaries are on PATH |
 
 ## Why source build, not Homebrew

@@ -16,11 +16,11 @@
   "remoteUser": "vscode",
   "updateRemoteUserUID": true,
   "onCreateCommand": {
-    "deps-apt": "sudo apt-get update && sudo apt-get install -y tmux jq libicu-dev flock"
+    "deps-apt": "sudo apt-get update && sudo apt-get install -y tmux jq libicu-dev"
   },
   "postCreateCommand": {
-    "dolt": "set -a && . ./deps.env && set +a && curl -fsSL https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin dolt && dolt --version",
-    "bd": "set -a && . ./deps.env && set +a && curl -fsSL \"https://github.com/${BD_REPO}/releases/download/${BD_VERSION}/bd_${BD_VERSION#v}_linux_amd64.tar.gz\" | sudo tar -xz -C /usr/local/bin bd && bd version",
+    "dolt": "set -a && . ./deps.env && set +a && .github/scripts/install-dolt-archive.sh \"$DOLT_VERSION\" && dolt version",
+    "bd": "set -a && . ./deps.env && set +a && .github/scripts/install-bd-archive.sh \"$BD_VERSION\" && bd version",
     "gascity": "export PATH=\"$(go env GOPATH)/bin:$PATH\" && make setup && make install && export PATH=\"$(go env GOPATH)/bin:$PATH\" && gc version"
   },
   "postStartCommand": {
