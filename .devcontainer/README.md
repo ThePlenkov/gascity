@@ -9,6 +9,7 @@ This devcontainer reproduces a development environment for [gastownhall/gascity]
 | Go 1.26 | `mcr.microsoft.com/devcontainers/go` base image | 1.26 (matches `go.mod`) |
 | `tmux` | apt | system |
 | `jq` | apt | system |
+| `libicu-dev` | apt | system |
 | `flock` | apt | system (via `util-linux`) |
 | `git` | devcontainer feature | latest |
 | `gh` | devcontainer feature | latest |
@@ -36,7 +37,7 @@ The [installation guide](https://github.com/gastownhall/gascity/blob/main/docs/g
 
 ## Dolt data persistence
 
-`mounts` declares a named volume `gc-dolt-data` at `/home/vscode/.dolt-data` so Dolt databases created by `gc init` survive container rebuilds. Without this, every `postCreateCommand` would start from an empty Dolt state.
+`mounts` declares a named volume `gc-cities` at `/home/vscode/gc-cities`. Gas City stores managed Dolt data under each city's `.beads/dolt`, so **initializing cities under `~/gc-cities/` is what makes them survive container rebuilds.** A city created at `~/gc-cities/my-city` writes its Dolt databases to `~/gc-cities/my-city/.beads/dolt`, which lives inside the persisted volume. Cities initialized elsewhere are not persisted.
 
 ## What this does NOT install
 
@@ -49,7 +50,8 @@ The [installation guide](https://github.com/gastownhall/gascity/blob/main/docs/g
 ```bash
 # From repo root, with the devcontainer CLI installed:
 devcontainer up --workspace-folder .
-devcontainer exec --workspace-folder . bash -c 'gc version && gc init /tmp/test-city && cd /tmp/test-city && gc rig add /tmp/test-rig && gc sling claude "echo hello"'
+devcontainer exec --workspace-folder . bash -c \
+  'gc version && gc init ~/gc-cities/test-city && cd ~/gc-cities/test-city && mkdir -p /tmp/test-rig && git -C /tmp/test-rig init && gc rig add /tmp/test-rig'
 ```
 
 Or in VS Code: `Ctrl+Shift+P` → "Dev Containers: Reopen in Container".
@@ -59,14 +61,16 @@ Or in VS Code: `Ctrl+Shift+P` → "Dev Containers: Reopen in Container".
 Follow the [Quickstart](https://github.com/gastownhall/gascity/blob/main/docs/getting-started/quickstart.md):
 
 ```bash
-gc init ~/my-city
-cd ~/my-city
+gc init ~/gc-cities/my-city
+cd ~/gc-cities/my-city
 mkdir ~/hello-world && cd ~/hello-world && git init && cd -
 gc rig add ~/hello-world
 cd ~/hello-world
 gc sling claude "Create a script that prints hello world"
 bd show <bead-id> --watch
 ```
+
+Initialize cities under `~/gc-cities/` so their managed Dolt data persists across rebuilds (see [Dolt data persistence](#dolt-data-persistence)).
 
 ## Note on `gc` and Oh My Zsh
 

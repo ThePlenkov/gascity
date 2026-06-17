@@ -16,7 +16,8 @@
   "remoteUser": "vscode",
   "updateRemoteUserUID": true,
   "onCreateCommand": {
-    "deps-apt": "sudo apt-get update && sudo apt-get install -y tmux jq libicu-dev"
+    "deps-apt": "sudo apt-get update && sudo apt-get install -y tmux jq libicu-dev",
+    "fix-perms": "sudo mkdir -p /home/vscode/gc-cities && sudo chown vscode:vscode /home/vscode/gc-cities"
   },
   "postCreateCommand": {
     "dolt": "set -a && . ./deps.env && set +a && .github/scripts/install-dolt-archive.sh \"$DOLT_VERSION\" && dolt version",
@@ -45,7 +46,7 @@
     "GC_BEADS": "dolt"
   },
   "mounts": [
-    "source=gc-dolt-data,target=/home/vscode/.dolt-data,type=volume"
+    "source=gc-cities,target=/home/vscode/gc-cities,type=volume"
   ],
   "portsAttributes": {},
   "otherPortsAttributes": {},
