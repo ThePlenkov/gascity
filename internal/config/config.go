@@ -3446,11 +3446,13 @@ func routedReadyTierCommand(includeEphemeralReady bool) string {
 // The && chain ensures any non-zero bd exit short-circuits the whole expression
 // (TestEffectiveScaleCheckUsesReadyOnly).
 func poolDemandCountShell(target string, includeEphemeralReady bool) string {
+	// scale_check is a yes/no signal: "is there work?" not "how many workers?"
+	// --limit=1 bounds the bd ready scan to O(1) on any store size.
 	script := `target="$1"; ` +
-		`ready_json=$(` + bdReadyPoolDemandShell("--limit 0", includeEphemeralReady) + `) || exit $?; ` +
-		`legacy_candidates=$(` + bdReadyPoolDemandMigrationShell("--limit 0", includeEphemeralReady) + `) || exit $?; ` +
-		`legacy_json=$(printf "%s" "$legacy_candidates" | ` + poolDemandMigrationFilterJQ(0) + `) || exit $?; ` +
-		`legacy_ephemeral_json=$(` + legacyEphemeralPoolDemandShell(0, includeEphemeralReady, false) + `); ` +
+		`ready_json=$(` + bdReadyPoolDemandShell("--limit=1", includeEphemeralReady) + `) || exit $?; ` +
+		`legacy_candidates=$(` + bdReadyPoolDemandMigrationShell("--limit=1", includeEphemeralReady) + `) || exit $?; ` +
+		`legacy_json=$(printf "%s" "$legacy_candidates" | ` + poolDemandMigrationFilterJQ(1) + `) || exit $?; ` +
+		`legacy_ephemeral_json=$(` + legacyEphemeralPoolDemandShell(1, includeEphemeralReady, false) + `); ` +
 		`printf "%s\n%s\n%s\n" "$ready_json" "$legacy_json" "$legacy_ephemeral_json" | jq -s "(add // []) | unique_by(.id) | length"`
 	return shellquote.Join([]string{"sh", "-c", script, "--", target})
 }

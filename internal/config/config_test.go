@@ -2706,11 +2706,11 @@ func TestPoolDemandPredicateSharedWithWorkQuery(t *testing.T) {
 					t.Errorf("EffectiveWorkQuery() missing migration filter fragment %q in %q", want, wq)
 				}
 			}
-			countPredicate := bdReadyPoolDemandShell("--limit 0", false)
+			countPredicate := bdReadyPoolDemandShell("--limit=1", false)
 			if !strings.Contains(demand, countPredicate) {
 				t.Errorf("EffectivePoolDemandQuery() missing shared predicate %q in %q", countPredicate, demand)
 			}
-			migrationCountPredicate := bdReadyPoolDemandMigrationShell("--limit 0", false)
+			migrationCountPredicate := bdReadyPoolDemandMigrationShell("--limit=1", false)
 			if !strings.Contains(demand, migrationCountPredicate) {
 				t.Errorf("EffectivePoolDemandQuery() missing shared migration predicate %q in %q", migrationCountPredicate, demand)
 			}
@@ -3102,8 +3102,8 @@ func TestEffectiveScaleCheckUsesReadyOnly(t *testing.T) {
 		t.Errorf("EffectiveScaleCheck = %q, should not count in-progress work as new demand", check)
 	}
 
-	if !strings.Contains(check, "--limit 0") {
-		t.Errorf("missing --limit 0 for complete ready count")
+	if !strings.Contains(check, "--limit=1") {
+		t.Errorf("missing --limit=1 for O(1) yes/no demand probe")
 	}
 	if strings.Contains(check, "2>/dev/null") || strings.Contains(check, "${ready:-0}") || strings.Contains(check, "|| echo 0") {
 		t.Errorf("default scale_check masks bd ready failures as zero: %q", check)
