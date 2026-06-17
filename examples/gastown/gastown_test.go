@@ -1998,18 +1998,19 @@ func TestDogStartupPromptUsesSplitClaimFirstQueries(t *testing.T) {
 	}
 }
 
-func TestNonDogStartupPromptsUseAssignedInProgressQuery(t *testing.T) {
+func TestNonDogStartupPromptsUseCompatibilityAwareWorkLookup(t *testing.T) {
 	checks := []struct {
-		rel     string
-		start   string
-		end     string
-		want    string
-		forbid  []string
-		render  bool
-		agent   string
-		tmpl    string
-		rig     string
-		binding string
+		rel        string
+		start      string
+		end        string
+		want       string
+		forbid     []string
+		render     bool
+		renderWant string
+		agent      string
+		tmpl       string
+		rig        string
+		binding    string
 	}{
 		{
 			rel:    "packs/gastown/template-fragments/propulsion.template.md",
@@ -2096,16 +2097,17 @@ func TestNonDogStartupPromptsUseAssignedInProgressQuery(t *testing.T) {
 			forbid: []string{`gc bd list --assignee=$GC_AGENT --status=in_progress`},
 		},
 		{
-			rel:     "packs/gastown/agents/polecat/prompt.template.md",
-			start:   "## Startup Protocol",
-			end:     "## Context Exhaustion",
-			want:    "{{ .AssignedInProgressQuery }}",
-			forbid:  []string{`gc bd list --assignee="$GC_SESSION_NAME" --status=in_progress`},
-			render:  true,
-			agent:   "gastown/polecat",
-			tmpl:    "polecat",
-			rig:     "gastown",
-			binding: "gastown.",
+			rel:        "packs/gastown/agents/polecat/prompt.template.md",
+			start:      "## Startup Protocol",
+			end:        "## Context Exhaustion",
+			want:       "gc hook --claim --json",
+			forbid:     []string{`gc bd list --assignee="$GC_SESSION_NAME" --status=in_progress`},
+			render:     true,
+			renderWant: "gc hook --claim --json",
+			agent:      "gastown/polecat",
+			tmpl:       "polecat",
+			rig:        "gastown",
+			binding:    "gastown.",
 		},
 		{
 			rel:     "packs/gastown/agents/deacon/prompt.template.md",
@@ -2156,11 +2158,15 @@ func TestNonDogStartupPromptsUseAssignedInProgressQuery(t *testing.T) {
 				return
 			}
 			rendered := renderGastownPromptForPack(t, check.rel, check.agent, check.tmpl, "demo", check.rig, check.binding)
-			if strings.Contains(rendered, check.want) {
+			if strings.HasPrefix(check.want, "{{") && strings.Contains(rendered, check.want) {
 				t.Fatalf("%s rendered prompt still contains %q", check.rel, check.want)
 			}
-			if !strings.Contains(rendered, `bd list --include-ephemeral --status in_progress --assignee="$GC_SESSION_ID"`) {
-				t.Fatalf("%s rendered prompt missing compatibility-aware in-progress query: %q", check.rel, rendered)
+			renderWant := check.renderWant
+			if renderWant == "" {
+				renderWant = `bd list --include-ephemeral --status in_progress --assignee="$GC_SESSION_ID"`
+			}
+			if !strings.Contains(rendered, renderWant) {
+				t.Fatalf("%s rendered prompt missing compatibility-aware work lookup %q: %q", check.rel, renderWant, rendered)
 			}
 		})
 	}
