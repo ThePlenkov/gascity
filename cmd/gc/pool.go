@@ -53,12 +53,13 @@ type ScaleCheckRunner func(command, dir string, env map[string]string) (string, 
 // work_query). Generous to accommodate bd calls that serialize through
 // a shared dolt sql-server when many pool probes run in parallel.
 // Override via GC_BD_PROBE_TIMEOUT (e.g. "30s" for test cities); minimum 5s.
-var bdProbeTimeout = parseBdProbeTimeout()
+var bdProbeTimeout = parseBdProbeTimeout(os.Stderr)
 
 // parseBdProbeTimeout reads GC_BD_PROBE_TIMEOUT and returns the probe timeout
 // to use. Falls back to 180s when unset or unparseable; enforces a 5s floor so
 // a misconfigured production city cannot make the fleet unresponsive.
-func parseBdProbeTimeout() time.Duration {
+// Writes a warning to w when the floor is applied.
+func parseBdProbeTimeout(w io.Writer) time.Duration {
 	const defaultTimeout = 180 * time.Second
 	const floor = 5 * time.Second
 	raw := os.Getenv("GC_BD_PROBE_TIMEOUT")
@@ -70,6 +71,7 @@ func parseBdProbeTimeout() time.Duration {
 		return defaultTimeout
 	}
 	if d < floor {
+		fmt.Fprintf(w, "warning: GC_BD_PROBE_TIMEOUT %q is below the 5s floor; using 5s\n", raw) //nolint:errcheck // best-effort stderr
 		return floor
 	}
 	return d

@@ -103,7 +103,7 @@ func TestEvaluatePoolNonInteger(t *testing.T) {
 
 func TestParseBdProbeTimeoutDefault(t *testing.T) {
 	t.Setenv("GC_BD_PROBE_TIMEOUT", "")
-	got := parseBdProbeTimeout()
+	got := parseBdProbeTimeout(io.Discard)
 	if got != 180*time.Second {
 		t.Errorf("parseBdProbeTimeout() = %v, want 180s", got)
 	}
@@ -111,7 +111,7 @@ func TestParseBdProbeTimeoutDefault(t *testing.T) {
 
 func TestParseBdProbeTimeoutEnvVarOverride(t *testing.T) {
 	t.Setenv("GC_BD_PROBE_TIMEOUT", "30s")
-	got := parseBdProbeTimeout()
+	got := parseBdProbeTimeout(io.Discard)
 	if got != 30*time.Second {
 		t.Errorf("parseBdProbeTimeout() = %v, want 30s", got)
 	}
@@ -119,7 +119,7 @@ func TestParseBdProbeTimeoutEnvVarOverride(t *testing.T) {
 
 func TestParseBdProbeTimeoutFloorEnforced(t *testing.T) {
 	t.Setenv("GC_BD_PROBE_TIMEOUT", "2s")
-	got := parseBdProbeTimeout()
+	got := parseBdProbeTimeout(io.Discard)
 	if got != 5*time.Second {
 		t.Errorf("parseBdProbeTimeout() with 2s = %v, want 5s (floor)", got)
 	}
@@ -127,7 +127,7 @@ func TestParseBdProbeTimeoutFloorEnforced(t *testing.T) {
 
 func TestParseBdProbeTimeoutZeroUsesFloor(t *testing.T) {
 	t.Setenv("GC_BD_PROBE_TIMEOUT", "0s")
-	got := parseBdProbeTimeout()
+	got := parseBdProbeTimeout(io.Discard)
 	if got != 5*time.Second {
 		t.Errorf("parseBdProbeTimeout() with 0s = %v, want 5s (floor)", got)
 	}
@@ -135,9 +135,18 @@ func TestParseBdProbeTimeoutZeroUsesFloor(t *testing.T) {
 
 func TestParseBdProbeTimeoutInvalidUsesDefault(t *testing.T) {
 	t.Setenv("GC_BD_PROBE_TIMEOUT", "notaduration")
-	got := parseBdProbeTimeout()
+	got := parseBdProbeTimeout(io.Discard)
 	if got != 180*time.Second {
 		t.Errorf("parseBdProbeTimeout() with invalid = %v, want 180s (default)", got)
+	}
+}
+
+func TestParseBdProbeTimeoutFloorLogsWarning(t *testing.T) {
+	t.Setenv("GC_BD_PROBE_TIMEOUT", "2s")
+	var buf bytes.Buffer
+	parseBdProbeTimeout(&buf)
+	if !strings.Contains(buf.String(), "5s floor") {
+		t.Errorf("expected floor warning in stderr output, got: %q", buf.String())
 	}
 }
 
