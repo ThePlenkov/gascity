@@ -1,0 +1,55 @@
+{
+  "name": "Gas City",
+  "image": "mcr.microsoft.com/devcontainers/go:1.26-ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": false
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "runServices": [],
+  "overrideCommand": false,
+  "containerUser": "vscode",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "onCreateCommand": {
+    "deps-apt": "sudo apt-get update && sudo apt-get install -y tmux jq libicu-dev flock"
+  },
+  "postCreateCommand": {
+    "dolt": "set -a && . ./deps.env && set +a && curl -fsSL https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin dolt && dolt --version",
+    "bd": "set -a && . ./deps.env && set +a && curl -fsSL \"https://github.com/${BD_REPO}/releases/download/${BD_VERSION}/bd_${BD_VERSION#v}_linux_amd64.tar.gz\" | sudo tar -xz -C /usr/local/bin bd && bd version",
+    "gascity": "export PATH=\"$(go env GOPATH)/bin:$PATH\" && make setup && make install && export PATH=\"$(go env GOPATH)/bin:$PATH\" && gc version"
+  },
+  "postStartCommand": {
+    "verify": "command -v gc && command -v dolt && command -v bd && command -v tmux && command -v jq && command -v flock && gc version"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "github.vscode-pull-request-github",
+        "EditorConfig.EditorConfig"
+      ],
+      "settings": {
+        "go.goroot": "/usr/local/go",
+        "go.gopath": "/home/vscode/go",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/go/bin",
+    "GC_BEADS": "dolt"
+  },
+  "mounts": [
+    "source=gc-dolt-data,target=/home/vscode/.dolt-data,type=volume"
+  ],
+  "portsAttributes": {},
+  "otherPortsAttributes": {},
+  "containerEnv": {
+    "DEBIAN_FRONTEND": "noninteractive"
+  }
+}
