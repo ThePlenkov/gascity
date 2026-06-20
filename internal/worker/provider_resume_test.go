@@ -38,6 +38,7 @@ func TestDerivedResumeSessionKeyHookManagedProvidersStayEmpty(t *testing.T) {
 	}{
 		{provider: "opencode/tmux-cli", key: "ses_21523e55fffeqoQOyaIoQtfdf5"},
 		{provider: "mimocode/tmux-cli", key: "ses_31523e55fffeqoQOyaIoQtfdf6"},
+		{provider: "kilo/tmux-cli", key: "ses_41523e55fffeqoQOyaIoQtfdf7"},
 		{provider: "kimi/tmux-cli", key: "fe8717c9-1903-4bd4-b8e5-159caeb56f1a"},
 		{provider: "pi/tmux-cli", key: "pi-session-123"},
 		{provider: "omp/tmux-cli", key: "omp-session-123"},

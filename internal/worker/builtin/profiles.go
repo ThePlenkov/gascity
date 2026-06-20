@@ -82,7 +82,7 @@ const (
 
 var builtinProviderOrder = []string{
 	"claude", "codex", "gemini", "grok", "kimi", "kiro", "cursor", "copilot",
-	"amp", "opencode", "mimocode", "groq", "cerebras", "auggie", "pi", "omp",
+	"amp", "opencode", "kilo", "mimocode", "groq", "cerebras", "auggie", "pi", "omp",
 	"antigravity",
 }
 
@@ -485,6 +485,27 @@ var builtinProviderSpecs = map[string]BuiltinProviderSpec{
 			},
 		},
 	},
+	"kilo": {
+		// Kilo Code (https://kilo.ai) is a fork of OpenCode. The kilo
+		// CLI shares OpenCode's transcript/hook surface but exposes
+		// distinct command-line flags. Mirroring the opencode spec
+		// keeps session lifecycle, prompt handling, and resume wired
+		// the same way; the kilo binary is what gets launched.
+		DisplayName:      "Kilo Code",
+		Command:          "kilo",
+		Args:             []string{},
+		PromptMode:       "flag",
+		PromptFlag:       "--prompt",
+		ReadyDelayMs:     8000,
+		ProcessNames:     []string{"kilo", "node", "bun"},
+		Env:              map[string]string{"OPENCODE_PERMISSION": `{"*":"allow"}`},
+		SupportsACP:      true,
+		SupportsHooks:    true,
+		InstructionsFile: "AGENTS.md",
+		ResumeFlag:       "--session",
+		ResumeStyle:      "flag",
+		ACPArgs:          []string{"acp"},
+	},
 	"mimocode": {
 		// MiMo Code (Xiaomi's `mimo` CLI) is an OpenCode fork. Permission
 		// defaults are already permissive for bash/edit; only the
@@ -716,6 +737,8 @@ func CanonicalProfileIdentity(profile string) (ProfileIdentity, bool) {
 		return newProfileIdentity(profile, "kimi"), true
 	case "opencode/tmux-cli":
 		return newProfileIdentity(profile, "opencode"), true
+	case "kilo/tmux-cli":
+		return newProfileIdentity(profile, "kilo"), true
 	case "mimocode/tmux-cli":
 		return newProfileIdentity(profile, "mimocode"), true
 	case "pi/tmux-cli":

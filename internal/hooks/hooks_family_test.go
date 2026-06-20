@@ -79,6 +79,18 @@ func TestInstallWithResolver_EmptyFamilyFallsBackToName(t *testing.T) {
 // mapping to an unknown family surfaces the usual "unsupported hook
 // provider" error — wrapped aliases without a claude/codex/gemini/etc.
 // ancestor do not silently no-op.
+func TestInstallWithResolver_Kilo(t *testing.T) {
+	fs := fsys.NewFake()
+	if err := InstallWithResolver(fs, "/city", "/work", []string{"kilo"}, nil); err != nil {
+		t.Fatalf("InstallWithResolver(kilo) = %v, want nil", err)
+	}
+	// kilo (a fork of opencode) installs the managed plugin at
+	// .kilo/plugin/gascity.js.
+	if _, err := fs.ReadFile(filepath.Join("/work", ".kilo", "plugin", "gascity.js")); err != nil {
+		t.Errorf("expected /work/.kilo/plugin/gascity.js to be written: %v", err)
+	}
+}
+
 func TestInstallWithResolver_UnknownFamilyErrors(t *testing.T) {
 	fs := fsys.NewFake()
 	resolver := func(_ string) string { return "bogus" }

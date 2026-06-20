@@ -8,11 +8,11 @@ func TestBuiltinProvidersAndOrder(t *testing.T) {
 	providers := BuiltinProviders()
 	order := BuiltinProviderOrder()
 
-	if len(providers) != 17 {
-		t.Fatalf("len(BuiltinProviders()) = %d, want 17", len(providers))
+	if len(providers) != 18 {
+		t.Fatalf("len(BuiltinProviders()) = %d, want 18", len(providers))
 	}
-	if len(order) != 17 {
-		t.Fatalf("len(BuiltinProviderOrder()) = %d, want 17", len(order))
+	if len(order) != 18 {
+		t.Fatalf("len(BuiltinProviderOrder()) = %d, want 18", len(order))
 	}
 
 	for _, name := range order {
@@ -73,8 +73,58 @@ func TestBuiltinProviderMimoCodeSpec(t *testing.T) {
 	if mimocodeIdx == -1 {
 		t.Fatal("BuiltinProviderOrder() missing mimocode")
 	}
-	if mimocodeIdx != opencodeIdx+1 {
-		t.Errorf("mimocode order index = %d, want immediately after opencode (%d)", mimocodeIdx, opencodeIdx)
+	// kilo now sits between opencode and mimocode; mimocode must be
+	// somewhere after opencode but not necessarily immediately after.
+	if mimocodeIdx <= opencodeIdx {
+		t.Errorf("mimocode order index = %d, want strictly after opencode (%d)", mimocodeIdx, opencodeIdx)
+	}
+}
+
+// TestBuiltinProviderKiloSpec verifies that the kilo CLI is registered
+// as a builtin runtime provider with the opencode-derived profile shape.
+func TestBuiltinProviderKiloSpec(t *testing.T) {
+	providers := BuiltinProviders()
+	spec, ok := providers["kilo"]
+	if !ok {
+		t.Fatal("BuiltinProviders() missing kilo")
+	}
+	if spec.Command != "kilo" {
+		t.Errorf("kilo Command = %q, want %q", spec.Command, "kilo")
+	}
+	if spec.DisplayName != "Kilo Code" {
+		t.Errorf("kilo DisplayName = %q, want %q", spec.DisplayName, "Kilo Code")
+	}
+	if spec.PromptMode != "flag" || spec.PromptFlag != "--prompt" {
+		t.Errorf("kilo prompt = (%q, %q), want (flag, --prompt)", spec.PromptMode, spec.PromptFlag)
+	}
+	if !spec.SupportsACP || !spec.SupportsHooks {
+		t.Errorf("kilo SupportsACP=%v SupportsHooks=%v, want both true", spec.SupportsACP, spec.SupportsHooks)
+	}
+	if spec.ResumeFlag != "--session" || spec.ResumeStyle != "flag" {
+		t.Errorf("kilo resume = (%q, %q), want (--session, flag)", spec.ResumeFlag, spec.ResumeStyle)
+	}
+	if len(spec.ACPArgs) != 1 || spec.ACPArgs[0] != "acp" {
+		t.Errorf("kilo ACPArgs = %v, want [acp]", spec.ACPArgs)
+	}
+	if spec.InstructionsFile != "AGENTS.md" {
+		t.Errorf("kilo InstructionsFile = %q, want AGENTS.md", spec.InstructionsFile)
+	}
+
+	order := BuiltinProviderOrder()
+	opencodeIdx, kiloIdx := -1, -1
+	for i, name := range order {
+		switch name {
+		case "opencode":
+			opencodeIdx = i
+		case "kilo":
+			kiloIdx = i
+		}
+	}
+	if kiloIdx == -1 {
+		t.Fatal("BuiltinProviderOrder() missing kilo")
+	}
+	if kiloIdx != opencodeIdx+1 {
+		t.Errorf("kilo order index = %d, want immediately after opencode (%d)", kiloIdx, opencodeIdx)
 	}
 }
 

@@ -1027,6 +1027,13 @@ func ProviderFamily(provider string) string {
 		return "kimi"
 	case strings.Contains(p, "mimocode"):
 		return "mimocode"
+	// kilo is a fork of opencode that shares the same export/mirror
+	// surface (kilo exports sessions via the opencode engine). Map it
+	// to the opencode family so the opencode reader, finder, and escape
+	// policy apply without duplicating them. Catches "kilo", "kilo-...",
+	// ".../kilo", "...-kilo", and the upstream "kilocode" alias.
+	case isKiloProvider(p):
+		return "opencode"
 	case strings.Contains(p, "opencode"):
 		return "opencode"
 	case strings.Contains(p, "antigravity"):
@@ -1036,6 +1043,26 @@ func ProviderFamily(provider string) string {
 	default:
 		return p
 	}
+}
+
+// isKiloProvider reports whether the lower-cased provider string is a
+// kilo-family runtime (kilo, kilocode, or any prefix/suffix/separator
+// variant such as "kilo/tmux-cli", "kilo-cli", or "/path/to/kilo"). The
+// kilo CLI is a fork of opencode and shares the same transcript surface.
+func isKiloProvider(p string) bool {
+	if p == "kilo" {
+		return true
+	}
+	if strings.HasPrefix(p, "kilo/") || strings.HasPrefix(p, "kilo-") {
+		return true
+	}
+	if strings.HasSuffix(p, "/kilo") || strings.HasSuffix(p, "-kilo") {
+		return true
+	}
+	if strings.Contains(p, "/kilo/") || strings.Contains(p, "-kilo-") {
+		return true
+	}
+	return false
 }
 
 func claudeProjectSlugCandidates(workDir string) []string {

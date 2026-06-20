@@ -9,7 +9,7 @@ description: Create a city, add a project as a rig, and sling your first work to
 Install at least one CLI coding agent (Gas City calls these "providers") and
 put it on the PATH. Gas City supports many, including Claude Code (`claude`),
 Codex (`codex`), Gemini (`gemini`), Grok Build (`grok`), OpenCode (`opencode`),
-Groq (`groq`), and Cerebras (`cerebras`). Configure each with its token or API
+Kilo Code (`kilo`), Groq (`groq`), and Cerebras (`cerebras`). Configure each with its token or API
 key so it can run — the more the merrier.
 
 Then install the Gas City CLI and put it on the PATH:

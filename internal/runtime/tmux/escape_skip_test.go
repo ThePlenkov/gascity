@@ -18,6 +18,8 @@ func TestProviderEnvSkipsEscapeBeforeEnter(t *testing.T) {
 		{provider: "copilot", want: true},
 		{provider: "gemini", want: true},
 		{provider: "grok", want: true},
+		{provider: "kilo", want: true},
+		{provider: "kilo/tmux-cli", want: true},
 		{provider: "kimi", want: true},
 		{provider: "opencode", want: true},
 		{provider: "pi", want: true},

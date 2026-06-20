@@ -54,7 +54,7 @@ func TestSupportedProviders(t *testing.T) {
 	want := map[string]bool{
 		"claude": true, "codex": true, "gemini": true, "kiro": true, "opencode": true,
 		"mimocode": true, "groq": true, "cerebras": true, "copilot": true, "cursor": true,
-		"pi": true, "omp": true, "antigravity": true, "kimi": true,
+		"pi": true, "omp": true, "antigravity": true, "kimi": true, "kilo": true,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("SupportedProviders() = %v, want %d entries", got, len(want))
