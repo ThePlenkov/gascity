@@ -29,7 +29,7 @@ var configFS embed.FS
 
 // supported lists provider names that have hook support wired into
 // Gas Town's installer.
-var supported = []string{"claude", "codex", "gemini", "antigravity", "kiro", "opencode", "mimocode", "groq", "cerebras", "copilot", "cursor", "pi", "omp", "kimi"}
+var supported = []string{"claude", "codex", "gemini", "antigravity", "kiro", "opencode", "mimocode", "groq", "cerebras", "copilot", "cursor", "pi", "omp", "kimi", "kilo"}
 
 const (
 	managedPiHookVersion       = 7
@@ -156,7 +156,7 @@ func InstallWithResolver(fs fsys.FS, cityDir, workDir string, providers []string
 		switch family {
 		case "claude":
 			err = installClaude(fs, cityDir)
-		case "codex", "gemini", "antigravity", "kiro", "opencode", "mimocode", "copilot", "cursor", "pi", "omp", "kimi":
+		case "codex", "gemini", "antigravity", "kiro", "opencode", "mimocode", "copilot", "cursor", "pi", "omp", "kimi", "kilo":
 			err = installOverlayManaged(fs, workDir, family)
 		case "groq", "cerebras":
 			err = installOverlayManaged(fs, workDir, "opencode")
@@ -230,6 +230,12 @@ func overlayManagedNeedsUpgrade(provider, rel string) func([]byte) bool {
 		return piHookNeedsUpgrade
 	}
 	if provider == "opencode" && rel == path.Join(".opencode", "plugins", "gascity.js") {
+		return opencodeHookNeedsUpgrade
+	}
+	// kilo is a fork of opencode that reads the same plugin shape from
+	// .kilo/plugin/. Track the opencode hook version so managed upgrades
+	// still trigger when the embedded template is bumped.
+	if provider == "kilo" && rel == path.Join(".kilo", "plugin", "gascity.js") {
 		return opencodeHookNeedsUpgrade
 	}
 	if provider == "mimocode" && rel == path.Join(".mimocode", "plugin", "gascity.js") {
