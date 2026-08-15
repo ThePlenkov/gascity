@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -55,9 +56,10 @@ type citySnapshot struct {
 // The snapshot rebuild is always called while citiesMu is held —
 // there is no TOCTOU gap between mutation and publication.
 type cityRegistry struct {
-	citiesMu sync.Mutex              // protects cities map only; never held by API readers
-	cities   map[string]*managedCity // keyed by path
-	snap     atomic.Pointer[citySnapshot]
+	citiesMu  sync.Mutex              // protects cities map only; never held by API readers
+	cities    map[string]*managedCity // keyed by path
+	snap      atomic.Pointer[citySnapshot]
+	cleanupWg sync.WaitGroup
 
 	// init/backoff state (co-protected by citiesMu)
 	initStatus           map[string]cityInitProgress
@@ -67,7 +69,21 @@ type cityRegistry struct {
 	recentlyUnregistered map[string]recentlyUnregisteredCity // city path → stable name and unregister time
 	supervisorRecorder   events.Recorder                     // supervisor-level event recorder for city lifecycle events
 
-	gen uint64 // monotonic generation counter
+	gen         uint64 // monotonic generation counter for snapshots
+	nextCityGen uint64 // monotonic generation counter for city instances
+
+	// stopping records paths whose forced-stop cleanup is still in flight.
+	// It serializes replacement startup with the previous city's teardown.
+	stopping map[string]*cityStopState
+
+	// cleanupActive counts in-flight stopFn goroutines started by EndStop.
+	// IsStopping remains true while a stopFn is still running so a replacement
+	// city cannot race the old provider's asynchronous teardown.
+	cleanupActive map[string]int
+}
+
+type cityStopState struct {
+	gen uint64
 }
 
 type recentlyUnregisteredCity struct {
@@ -84,6 +100,7 @@ func newCityRegistry() *cityRegistry {
 		panicHistory:         make(map[string]*panicRecord),
 		pendingRequestIDs:    make(map[string]string),
 		recentlyUnregistered: make(map[string]recentlyUnregisteredCity),
+		cleanupActive:        make(map[string]int),
 	}
 	// Initialize with empty snapshot to prevent nil-dereference panic
 	// if an API request arrives before the first reconciliation tick.
@@ -195,6 +212,94 @@ func (r *cityRegistry) Has(path string) bool {
 	defer r.citiesMu.Unlock()
 	_, ok := r.cities[path]
 	return ok
+}
+
+func (r *cityRegistry) latestGenLocked(path string) uint64 {
+	var g uint64
+	if mc := r.cities[path]; mc != nil && mc.gen > g {
+		g = mc.gen
+	}
+	if ip := r.initStatus[path]; ip.gen > g {
+		g = ip.gen
+	}
+	return g
+}
+
+// BeginStop records that the city at path is being stopped so new cities at
+// the same path are not started until cleanup finishes.
+func (r *cityRegistry) BeginStop(path string, gen uint64) {
+	r.citiesMu.Lock()
+	defer r.citiesMu.Unlock()
+	if r.stopping == nil {
+		r.stopping = make(map[string]*cityStopState)
+	}
+	r.stopping[path] = &cityStopState{gen: gen}
+}
+
+// EndStop calls stopFn to tear down the bead provider for path unless a newer
+// generation has already been published. It bounds the stopFn call with
+// cleanupMaxWait and always removes the stop marker, but keeps the path's
+// cleanupActive count high until the stopFn goroutine exits so a replacement
+// city cannot race the asynchronous provider teardown.
+func (r *cityRegistry) EndStop(path string, gen uint64, stopFn func() error) error {
+	r.citiesMu.Lock()
+	s := r.stopping[path]
+	if s == nil || s.gen != gen {
+		r.citiesMu.Unlock()
+		return nil
+	}
+	if newer := r.latestGenLocked(path); newer > gen {
+		delete(r.stopping, path)
+		r.citiesMu.Unlock()
+		return nil
+	}
+	r.cleanupActive[path]++
+	r.citiesMu.Unlock()
+
+	errCh := make(chan error, 1)
+	doneCh := make(chan struct{})
+	go func() {
+		defer close(doneCh)
+		defer r.decrementCleanupActive(path)
+		defer func() {
+			if v := recover(); v != nil {
+				errCh <- fmt.Errorf("bead store cleanup panicked: %v", v)
+			}
+		}()
+		errCh <- stopFn()
+	}()
+
+	var err error
+	select {
+	case err = <-errCh:
+		<-doneCh
+	case <-time.After(cleanupMaxWait):
+		err = fmt.Errorf("bead store cleanup did not finish within %s; abandoning stop marker", cleanupMaxWait)
+	}
+
+	r.citiesMu.Lock()
+	delete(r.stopping, path)
+	r.citiesMu.Unlock()
+	return err
+}
+
+func (r *cityRegistry) decrementCleanupActive(path string) {
+	r.citiesMu.Lock()
+	defer r.citiesMu.Unlock()
+	if r.cleanupActive[path] > 0 {
+		r.cleanupActive[path]--
+		if r.cleanupActive[path] == 0 {
+			delete(r.cleanupActive, path)
+		}
+	}
+}
+
+// IsStopping reports whether path has a forced-stop cleanup in progress,
+// including any asynchronous provider teardown that outlives EndStop's return.
+func (r *cityRegistry) IsStopping(path string) bool {
+	r.citiesMu.Lock()
+	defer r.citiesMu.Unlock()
+	return r.stopping[path] != nil || r.cleanupActive[path] > 0
 }
 
 // CancelCity calls cancel() on the city at path if it exists.
