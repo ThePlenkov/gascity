@@ -308,6 +308,12 @@ func (r *cityRegistry) decrementCleanupActive(path string) {
 func (r *cityRegistry) IsStopping(path string) bool {
 	r.citiesMu.Lock()
 	defer r.citiesMu.Unlock()
+	return r.isStoppingLocked(path)
+}
+
+// isStoppingLocked is the same predicate as IsStopping but must be called
+// while r.citiesMu is already held.
+func (r *cityRegistry) isStoppingLocked(path string) bool {
 	if r.stopping[path] != nil {
 		return true
 	}

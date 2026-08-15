@@ -2625,12 +2625,10 @@ func publishManagedCity(cr *cityRegistry, path string, mc *managedCity) bool {
 			return
 		}
 		// Re-check: a stop for this path may be in flight; do not publish a
-		// replacement over a city whose cleanup has not finished.
-		if _, stopping := cr.stopping[path]; stopping {
-			alreadyRunning = true
-			return
-		}
-		if cr.cleanupActive[path] > 0 {
+		// replacement over a city whose cleanup has not finished. Use the same
+		// predicate as reconcileCities so the two gates agree on when the path
+		// is startable again.
+		if cr.isStoppingLocked(path) {
 			alreadyRunning = true
 			return
 		}
