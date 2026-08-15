@@ -1201,7 +1201,14 @@ func stopManagedCityWithRegistry(mc *managedCity, cityPath string, stderr io.Wri
 // doShutdown is bounded by cleanupMaxWait, but the total sequence may exceed it.
 func cleanupAfterStop(mc *managedCity, cityPath string, stderr io.Writer, forced <-chan struct{}, cr *cityRegistry) {
 	if forced != nil {
-		<-forced
+		// If the forced shutdown goroutine is wedged on an unresponsive
+		// backend, do not let it pin the stop marker forever. Bounded wait
+		// lets EndStop remove the marker so a replacement city can start.
+		select {
+		case <-forced:
+		case <-time.After(cleanupMaxWait):
+			fmt.Fprintf(stderr, "gc supervisor: city '%s': forced shutdown did not complete within %s; proceeding with cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
+		}
 	}
 	if mc.cr != nil {
 		// Coordinate provider teardown with any in-flight sleep_reason marker

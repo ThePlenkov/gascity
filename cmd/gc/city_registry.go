@@ -77,9 +77,11 @@ type cityRegistry struct {
 	stopping map[string]*cityStopState
 
 	// cleanupActive counts in-flight stopFn goroutines started by EndStop.
-	// IsStopping remains true while a stopFn is still running so a replacement
-	// city cannot race the old provider's asynchronous teardown.
-	cleanupActive map[string]int
+	// IsStopping remains true while a stopFn is still running and within its
+	// deadline so a replacement city cannot race the old provider's asynchronous
+	// teardown. cleanupDeadline records the latest grace period for each path.
+	cleanupActive   map[string]int
+	cleanupDeadline map[string]time.Time
 }
 
 type cityStopState struct {
@@ -101,6 +103,7 @@ func newCityRegistry() *cityRegistry {
 		pendingRequestIDs:    make(map[string]string),
 		recentlyUnregistered: make(map[string]recentlyUnregisteredCity),
 		cleanupActive:        make(map[string]int),
+		cleanupDeadline:      make(map[string]time.Time),
 	}
 	// Initialize with empty snapshot to prevent nil-dereference panic
 	// if an API request arrives before the first reconciliation tick.
@@ -238,9 +241,9 @@ func (r *cityRegistry) BeginStop(path string, gen uint64) {
 
 // EndStop calls stopFn to tear down the bead provider for path unless a newer
 // generation has already been published. It bounds the stopFn call with
-// cleanupMaxWait and always removes the stop marker, but keeps the path's
-// cleanupActive count high until the stopFn goroutine exits so a replacement
-// city cannot race the asynchronous provider teardown.
+// cleanupMaxWait and always removes the stop marker. The path's cleanupActive
+// count stays high and cleanupDeadline is set so IsStopping keeps replacement
+// cities out of the path until the goroutine exits or its deadline passes.
 func (r *cityRegistry) EndStop(path string, gen uint64, stopFn func() error) error {
 	r.citiesMu.Lock()
 	s := r.stopping[path]
@@ -254,6 +257,10 @@ func (r *cityRegistry) EndStop(path string, gen uint64, stopFn func() error) err
 		return nil
 	}
 	r.cleanupActive[path]++
+	deadline := time.Now().Add(cleanupMaxWait)
+	if existing, ok := r.cleanupDeadline[path]; !ok || existing.Before(deadline) {
+		r.cleanupDeadline[path] = deadline
+	}
 	r.citiesMu.Unlock()
 
 	errCh := make(chan error, 1)
@@ -290,16 +297,24 @@ func (r *cityRegistry) decrementCleanupActive(path string) {
 		r.cleanupActive[path]--
 		if r.cleanupActive[path] == 0 {
 			delete(r.cleanupActive, path)
+			delete(r.cleanupDeadline, path)
 		}
 	}
 }
 
-// IsStopping reports whether path has a forced-stop cleanup in progress,
-// including any asynchronous provider teardown that outlives EndStop's return.
+// IsStopping reports whether path has a forced-stop cleanup in progress.
+// A cleanup in flight only blocks replacement while it is within its deadline,
+// so a wedged stopFn cannot permanently prevent a new city at the same path.
 func (r *cityRegistry) IsStopping(path string) bool {
 	r.citiesMu.Lock()
 	defer r.citiesMu.Unlock()
-	return r.stopping[path] != nil || r.cleanupActive[path] > 0
+	if r.stopping[path] != nil {
+		return true
+	}
+	if r.cleanupActive[path] == 0 {
+		return false
+	}
+	return time.Now().Before(r.cleanupDeadline[path])
 }
 
 // CancelCity calls cancel() on the city at path if it exists.
