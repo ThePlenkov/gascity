@@ -175,8 +175,10 @@ type CityRuntime struct {
 	// markCityStopSessionSleepReasonWithAbort. closeStorageRoutes waits for them
 	// before tearing down the storage binding so a slow/blocked SetMarker does
 	// not race storage teardown.
-	setterWgsMu sync.Mutex
-	setterWgs   []*sync.WaitGroup
+	setterWgsMu      sync.Mutex
+	setterWgs        []*sync.WaitGroup
+	setterWgsRegOnce sync.Once
+	setterWgsRegDone chan struct{}
 
 	// Bead-driven reconciler state (Phase 2f).
 	sessionDrains      *drainTracker       // in-memory drain tracker; nil when bead reconciler disabled
@@ -424,6 +426,7 @@ func newCityRuntime(p CityRuntimeParams) (*CityRuntime, error) {
 	cr := &CityRuntime{
 		storageRoutes:           routes,
 		shutdownDone:            make(chan struct{}),
+		setterWgsRegDone:        make(chan struct{}),
 		cityPath:                p.CityPath,
 		cityName:                p.CityName,
 		configName:              configName,
@@ -4087,6 +4090,11 @@ func (cr *CityRuntime) doShutdown() {
 			gracefulStopAllWithForceSignal(lateRunning, cr.sp, 0, cr.rec, cr.cfg, store, cr.stdout, cr.stderr, cr.forceStopRequested)
 		}
 	}
+	// All sleep_reason marker wait groups that this shutdown will create are
+	// now registered. Signal the barrier before the long graceful stop work so
+	// cleanup can coordinate provider teardown without racing late
+	// registrations or dropping a WaitGroup that has not yet been appended.
+	cr.signalSetterWgsRegistered()
 	// With every enumerated session stopped, tear down the provider's
 	// shared server, exactly like the standalone stop path (cmdStopBody
 	// -> teardownServerForStop). Without this, a supervisor-managed stop
@@ -4222,6 +4230,39 @@ func (cr *CityRuntime) waitSetterWgs(timeout time.Duration) bool {
 		return true
 	case <-time.After(timeout):
 		fmt.Fprintf(cr.stderr, "%s: sleep_reason marker writes did not finish within %s; continuing with storage teardown\n", cr.logPrefix, timeout) //nolint:errcheck
+		return false
+	}
+}
+
+func (cr *CityRuntime) initSetterWgsRegDone() {
+	if cr.setterWgsRegDone == nil {
+		cr.setterWgsRegDone = make(chan struct{})
+	}
+}
+
+func (cr *CityRuntime) signalSetterWgsRegistered() {
+	if cr == nil {
+		return
+	}
+	cr.setterWgsMu.Lock()
+	cr.initSetterWgsRegDone()
+	ch := cr.setterWgsRegDone
+	cr.setterWgsMu.Unlock()
+	cr.setterWgsRegOnce.Do(func() { close(ch) })
+}
+
+func (cr *CityRuntime) waitSetterWgsRegistered(timeout time.Duration) bool {
+	if cr == nil {
+		return true
+	}
+	cr.setterWgsMu.Lock()
+	cr.initSetterWgsRegDone()
+	ch := cr.setterWgsRegDone
+	cr.setterWgsMu.Unlock()
+	select {
+	case <-ch:
+		return true
+	case <-time.After(timeout):
 		return false
 	}
 }

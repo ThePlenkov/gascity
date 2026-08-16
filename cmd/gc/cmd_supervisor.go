@@ -1200,42 +1200,38 @@ func stopManagedCityWithRegistry(mc *managedCity, cityPath string, stderr io.Wri
 // closes the recorder. Each individual blocking force-stop operation inside
 // doShutdown is bounded by cleanupMaxWait, but the total sequence may exceed it.
 func cleanupAfterStop(mc *managedCity, cityPath string, stderr io.Writer, forced <-chan struct{}, cr *cityRegistry) {
-	// stopFn runs the actual provider teardown. It is passed to EndStop when a
-	// registry is present so the stop marker can be removed on the cleanup budget
-	// while the goroutine continues to wait for the forced shutdown body. The
-	// key invariant is that we do not clear the marker WaitGroup list or tear
-	// down the bead provider until doShutdown has returned, because doShutdown
-	// may still be registering late wait groups while it is in its bounded
-	// listing/marker phase.
-	stopFn := func() error {
-		if forced != nil {
-			// If the forced shutdown goroutine is wedged on an unresponsive
-			// backend, log a warning but keep waiting for it before provider
-			// teardown so a late SetMarker goroutine is not dropped.
-			select {
-			case <-forced:
-			case <-time.After(cleanupMaxWait):
-				fmt.Fprintf(stderr, "gc supervisor: city '%s': forced shutdown did not complete within %s; continuing to wait before bead store cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
-				<-forced
-			}
+	if forced != nil {
+		// Give doShutdown a bounded chance to finish its work before we tear
+		// down the bead provider. If it does not finish in time, we proceed with
+		// cleanup; the forced-stop budget has already expired.
+		select {
+		case <-forced:
+		case <-time.After(cleanupMaxWait):
+			fmt.Fprintf(stderr, "gc supervisor: city '%s': forced shutdown did not complete within %s; proceeding with cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
 		}
-		if mc.cr != nil {
-			// Coordinate provider teardown with any in-flight sleep_reason marker
-			// writes so the bead store is not stopped while SetMarker goroutines
-			// are still using it.
-			if !mc.cr.waitSetterWgs(cleanupMaxWait) {
-				fmt.Fprintf(stderr, "gc supervisor: city '%s': sleep_reason marker writes did not finish within %s; proceeding with bead store cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
-			}
-			mc.cr.clearSetterWgs()
-		}
-		return shutdownBeadsProvider(cityPath)
 	}
-
+	if mc.cr != nil {
+		// Wait for the registration barrier before clearing the marker wait
+		// group list. doShutdown appends setter WaitGroups in its listing/marker
+		// phase and only signals the barrier once every expected WaitGroup is
+		// registered. Without the barrier, a late addSetterWg could be dropped
+		// by clearSetterWgs and race bead-provider teardown.
+		if !mc.cr.waitSetterWgsRegistered(cleanupMaxWait) {
+			fmt.Fprintf(stderr, "gc supervisor: city '%s': sleep_reason marker registration did not finish within %s; proceeding with marker cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
+		}
+		// Coordinate provider teardown with any in-flight sleep_reason marker
+		// writes so the bead store is not stopped while SetMarker goroutines
+		// are still using it.
+		if !mc.cr.waitSetterWgs(cleanupMaxWait) {
+			fmt.Fprintf(stderr, "gc supervisor: city '%s': sleep_reason marker writes did not finish within %s; proceeding with bead store cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
+		}
+		mc.cr.clearSetterWgs()
+	}
 	if cr != nil {
-		if err := cr.EndStop(cityPath, mc.gen, stopFn); err != nil {
+		if err := cr.EndStop(cityPath, mc.gen, func() error { return shutdownBeadsProvider(cityPath) }); err != nil {
 			fmt.Fprintf(stderr, "gc supervisor: city '%s': bead store: %v\n", mc.name, err) //nolint:errcheck
 		}
-	} else if err := stopFn(); err != nil {
+	} else if err := shutdownBeadsProvider(cityPath); err != nil {
 		fmt.Fprintf(stderr, "gc supervisor: city '%s': bead store: %v\n", mc.name, err) //nolint:errcheck
 	}
 	if mc.closer != nil {
