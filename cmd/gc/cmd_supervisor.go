@@ -1217,7 +1217,7 @@ func cleanupAfterStop(mc *managedCity, cityPath string, stderr io.Writer, forced
 		if !mc.cr.waitSetterWgs(cleanupMaxWait) {
 			fmt.Fprintf(stderr, "gc supervisor: city '%s': sleep_reason marker writes did not finish within %s; proceeding with bead store cleanup\n", mc.name, cleanupMaxWait) //nolint:errcheck
 		}
-		mc.cr.setterWgs = nil
+		mc.cr.clearSetterWgs()
 	}
 	if cr != nil {
 		if err := cr.EndStop(cityPath, mc.gen, func() error { return shutdownBeadsProvider(cityPath) }); err != nil {

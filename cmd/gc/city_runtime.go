@@ -175,7 +175,8 @@ type CityRuntime struct {
 	// markCityStopSessionSleepReasonWithAbort. closeStorageRoutes waits for them
 	// before tearing down the storage binding so a slow/blocked SetMarker does
 	// not race storage teardown.
-	setterWgs []*sync.WaitGroup
+	setterWgsMu sync.Mutex
+	setterWgs   []*sync.WaitGroup
 
 	// Bead-driven reconciler state (Phase 2f).
 	sessionDrains      *drainTracker       // in-memory drain tracker; nil when bead reconciler disabled
@@ -4065,7 +4066,7 @@ func (cr *CityRuntime) doShutdown() {
 	sweepEnumerated := listErr == nil || cr.forceStopRequested()
 	store := cr.sessionsBeadStore()
 	if wg := markCityStopSessionSleepReasonWithAbort(sessionFrontDoor(store.Store), cr.stderr, cr.forceStopRequested, cleanupMaxWait); wg != nil {
-		cr.setterWgs = append(cr.setterWgs, wg)
+		cr.addSetterWg(wg)
 	}
 	gracefulStopAllWithForceSignal(running, cr.sp, gracefulTimeout, cr.rec, cr.cfg, store, cr.stdout, cr.stderr, cr.forceStopRequested)
 	if !asyncStartsDrained && cr.forceStopRequested() {
@@ -4081,7 +4082,7 @@ func (cr *CityRuntime) doShutdown() {
 		}
 		if len(lateRunning) > 0 {
 			if wg := markCityStopSessionSleepReasonWithAbort(sessionFrontDoor(store.Store), cr.stderr, cr.forceStopRequested, cleanupMaxWait); wg != nil {
-				cr.setterWgs = append(cr.setterWgs, wg)
+				cr.addSetterWg(wg)
 			}
 			gracefulStopAllWithForceSignal(lateRunning, cr.sp, 0, cr.rec, cr.cfg, store, cr.stdout, cr.stderr, cr.forceStopRequested)
 		}
@@ -4175,12 +4176,36 @@ func (cr *CityRuntime) forceShutdownAsync() <-chan struct{} {
 	return done
 }
 
+func (cr *CityRuntime) addSetterWg(wg *sync.WaitGroup) {
+	if wg == nil {
+		return
+	}
+	cr.setterWgsMu.Lock()
+	defer cr.setterWgsMu.Unlock()
+	cr.setterWgs = append(cr.setterWgs, wg)
+}
+
+func (cr *CityRuntime) snapshotSetterWgs() []*sync.WaitGroup {
+	cr.setterWgsMu.Lock()
+	defer cr.setterWgsMu.Unlock()
+	out := make([]*sync.WaitGroup, len(cr.setterWgs))
+	copy(out, cr.setterWgs)
+	return out
+}
+
+func (cr *CityRuntime) clearSetterWgs() {
+	cr.setterWgsMu.Lock()
+	defer cr.setterWgsMu.Unlock()
+	cr.setterWgs = nil
+}
+
 func (cr *CityRuntime) waitSetterWgs(timeout time.Duration) bool {
-	if len(cr.setterWgs) == 0 {
+	wgs := cr.snapshotSetterWgs()
+	if len(wgs) == 0 {
 		return true
 	}
 	var all sync.WaitGroup
-	for _, wg := range cr.setterWgs {
+	for _, wg := range wgs {
 		if wg == nil {
 			continue
 		}
