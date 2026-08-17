@@ -3298,11 +3298,16 @@ func hydrateStopTargets(targets []stopTarget, cfg *config.City, store beads.Stor
 	return merged
 }
 
-func stopTargetThroughWorkerBoundary(target stopTarget, store beads.Store, sp runtime.Provider, cfg *config.City) error {
+func stopTargetCanonicalID(target stopTarget) string {
 	targetID := strings.TrimSpace(target.sessionID)
 	if targetID == "" {
 		targetID = strings.TrimSpace(target.name)
 	}
+	return targetID
+}
+
+func stopTargetThroughWorkerBoundary(target stopTarget, store beads.Store, sp runtime.Provider, cfg *config.City) error {
+	targetID := stopTargetCanonicalID(target)
 	if cityStopSessionMarked(store, target.sessionID) {
 		if err := workerKillSessionTargetWithConfig("", store, sp, cfg, targetID); err != nil {
 			return err
@@ -3389,11 +3394,7 @@ func interruptTargetsBoundedWithForceSignal(targets []stopTarget, cfg *config.Ci
 	}
 	waveStarted := time.Now()
 	results, _ := executeTargetWaveUntil(interruptable, min(len(interruptable), defaultMaxParallelInterrupts), interruptPerTargetTimeout(cfg), shouldStop, func(target stopTarget) error {
-		targetID := strings.TrimSpace(target.sessionID)
-		if targetID == "" {
-			targetID = strings.TrimSpace(target.name)
-		}
-		return workerInterruptSessionTargetWithConfig("", store, sp, cfg, targetID)
+		return workerInterruptSessionTargetWithConfig("", store, sp, cfg, stopTargetCanonicalID(target))
 	})
 	for _, result := range results {
 		logLifecycleOutcome(stderr, "interrupt", 0, result.target.name, result.target.template, result.outcome, result.started, result.finished, result.err)
